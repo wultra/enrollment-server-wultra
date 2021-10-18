@@ -1,7 +1,8 @@
-# Enrollment Server
+# Enrollment Server - Wultra
 
-Base implementation of the enrollment server, usable as the stub for project bootstrapping. The enrollment server publishes the following services:
+Wultra implementation of the enrollment server. The enrollment server publishes the following services:
 
 - PowerAuth Standard RESTful API
 - Push Registration API
 - Mobile Token Operations API
+- Endpoints for Automated Testing
