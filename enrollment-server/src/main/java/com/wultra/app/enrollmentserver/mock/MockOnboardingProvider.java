@@ -38,7 +38,7 @@ public class MockOnboardingProvider implements OnboardingProvider {
     @Override
     public String lookupUser(Map<String, Object> identification) throws OnboardingProviderException {
         logger.info("Lookup user called: {}", identification);
-        return "mockuser1";
+        return "mockuser_" + identification.get("clientId");
     }
 
     @Override

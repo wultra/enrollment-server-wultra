@@ -20,18 +20,19 @@
 package com.wultra.app.enrollmentserver.mock.controller.v3;
 
 import com.wultra.app.enrollmentserver.database.OnboardingOtpRepository;
-import com.wultra.app.enrollmentserver.database.entity.OnboardingOtp;
+import com.wultra.app.enrollmentserver.database.entity.OnboardingOtpEntity;
 import com.wultra.app.enrollmentserver.errorhandling.OnboardingProcessException;
 import com.wultra.app.enrollmentserver.mock.model.request.OtpDetailRequest;
 import com.wultra.app.enrollmentserver.mock.model.response.OtpDetailResponse;
 import com.wultra.app.enrollmentserver.model.enumeration.OtpStatus;
+import com.wultra.app.enrollmentserver.model.enumeration.OtpType;
 import io.getlime.core.rest.model.base.request.ObjectRequest;
 import io.getlime.core.rest.model.base.response.ObjectResponse;
 import io.getlime.security.powerauth.crypto.lib.encryptor.ecies.model.EciesScope;
-import io.getlime.security.powerauth.rest.api.base.encryption.EciesEncryptionContext;
-import io.getlime.security.powerauth.rest.api.base.exception.PowerAuthEncryptionException;
 import io.getlime.security.powerauth.rest.api.spring.annotation.EncryptedRequestBody;
 import io.getlime.security.powerauth.rest.api.spring.annotation.PowerAuthEncryption;
+import io.getlime.security.powerauth.rest.api.spring.encryption.EciesEncryptionContext;
+import io.getlime.security.powerauth.rest.api.spring.exception.PowerAuthEncryptionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -87,14 +88,19 @@ public class OnboardingOtpController {
             logger.warn("Missing process ID in request");
             throw new OnboardingProcessException();
         }
+        OtpType otpType = request.getRequestObject().getOtpType();
+        if (otpType == null) {
+            logger.warn("Missing OTP type in request");
+            throw new OnboardingProcessException();
+        }
 
-        Optional<OnboardingOtp> otpOptional = onboardingOtpRepository.findFirstByProcessIdOrderByTimestampCreatedDesc(processId);
+        Optional<OnboardingOtpEntity> otpOptional = onboardingOtpRepository.findLastOtp(processId, otpType);
         if (!otpOptional.isPresent()) {
             logger.warn("OTP not found for process ID: " + processId);
             throw new OnboardingProcessException();
         }
 
-        OnboardingOtp otp = otpOptional.get();
+        OnboardingOtpEntity otp = otpOptional.get();
         if (otp.getStatus() != OtpStatus.ACTIVE) {
             logger.warn("OTP is not ACTIVE for process ID: " + processId);
             throw new OnboardingProcessException();

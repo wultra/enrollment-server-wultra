@@ -1,5 +1,6 @@
 package com.wultra.app.enrollmentserver.mock.model.request;
 
+import com.wultra.app.enrollmentserver.model.enumeration.OtpType;
 import lombok.Data;
 
 /**
@@ -11,5 +12,6 @@ import lombok.Data;
 public class OtpDetailRequest {
 
     private String processId;
+    private OtpType otpType;
 
 }

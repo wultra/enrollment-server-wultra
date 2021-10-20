@@ -19,11 +19,11 @@
  */
 package com.wultra.app.enrollmentserver.mock;
 
-import com.wultra.app.enrollmentserver.database.entity.OnboardingProcess;
+import com.wultra.app.enrollmentserver.activation.ActivationOtpService;
+import com.wultra.app.enrollmentserver.activation.ActivationProcessService;
+import com.wultra.app.enrollmentserver.api.model.response.OtpVerifyResponse;
 import com.wultra.app.enrollmentserver.errorhandling.OnboardingProcessException;
-import com.wultra.app.enrollmentserver.impl.service.OnboardingService;
 import com.wultra.app.enrollmentserver.model.enumeration.OnboardingStatus;
-import com.wultra.app.enrollmentserver.model.response.OtpVerifyResponse;
 import io.getlime.security.powerauth.rest.api.model.entity.ActivationType;
 import io.getlime.security.powerauth.rest.api.spring.exception.PowerAuthActivationException;
 import io.getlime.security.powerauth.rest.api.spring.provider.CustomActivationProvider;
@@ -47,12 +47,13 @@ public class MockCustomActivationProvider implements CustomActivationProvider {
 
     private static final Logger logger = LoggerFactory.getLogger(MockCustomActivationProvider.class);
 
-    // TODO - prepare a separate service which should be used within activation to separate internal code
-    private final OnboardingService onboardingService;
+    private final ActivationProcessService onboardingProcessService;
+    private final ActivationOtpService onboardingOtpService;
 
     @Autowired
-    public MockCustomActivationProvider(OnboardingService onboardingService) {
-        this.onboardingService = onboardingService;
+    public MockCustomActivationProvider(ActivationProcessService onboardingProcessService, ActivationOtpService onboardingOtpService) {
+        this.onboardingProcessService = onboardingProcessService;
+        this.onboardingOtpService = onboardingOtpService;
     }
 
     @Override
@@ -67,15 +68,10 @@ public class MockCustomActivationProvider implements CustomActivationProvider {
             }
             try {
                 // Lookup user ID using process stored in database
-                // TODO - use converter, do not manipulate the entity directly
-                OnboardingProcess process = onboardingService.findProcess(processId);
-                String userId = process.getUserId();
-                // Verify OTP code
-                OtpVerifyResponse response = onboardingService.verifyOtp(processId, otpCode);
-                if (response.isVerified()) {
-                    return userId;
+                OtpVerifyResponse verifyResponse = onboardingOtpService.verifyOtpCode(processId, otpCode);
+                if (verifyResponse.isVerified()) {
+                    return onboardingProcessService.getUserId(processId);
                 }
-                // TODO - provide a better error message by subclassing PowerAuthActivationException, include remaining attempts
                 throw new PowerAuthActivationException();
             } catch (OnboardingProcessException e) {
                 logger.warn("Onboarding process failed, process ID: {}", processId);
@@ -110,18 +106,9 @@ public class MockCustomActivationProvider implements CustomActivationProvider {
         if (identityAttributes.containsKey("processId")) {
             String processId = identityAttributes.get("processId");
             try {
-                // Lookup user ID using process stored in database
-                OnboardingProcess process = onboardingService.findProcess(processId);
-                if (!userId.equals(process.getUserId())) {
-                    logger.warn("Invalid user ID: {}", userId);
-                    throw new PowerAuthActivationException();
-                }
-                process.setStatus(OnboardingStatus.FINISHED);
-                process.setActivationId(activationId);
-                process.setTimestampLastUpdated(new Date());
-                // TODO - use converter, do not manipulate the entity directly
-                onboardingService.updateProcess(process);
-                logger.info("Onboarding succeeded for user ID: {}, activation ID: {}, process ID: {}", userId, activationId, processId);
+                // Update onboarding process
+                onboardingProcessService.updateProcess(processId, userId, activationId, OnboardingStatus.VERIFICATION_IN_PROGRESS);
+                logger.info("Activation was created for user ID: {}, activation ID: {}, process ID: {}", userId, activationId, processId);
             } catch (OnboardingProcessException e) {
                 logger.warn("Onboarding process failed, process ID: {}", processId);
                 throw new PowerAuthActivationException();
@@ -146,10 +133,9 @@ public class MockCustomActivationProvider implements CustomActivationProvider {
         if (identityAttributes.containsKey("processId")) {
             String processId = identityAttributes.get("processId");
             try {
-                // Lookup user ID using process stored in database
-                OnboardingProcess process = onboardingService.findProcess(processId);
-                if (!userId.equals(process.getUserId())) {
-                    logger.warn("Invalid user ID: {}", userId);
+                // Check user ID in onboarding process
+                if (!onboardingProcessService.getUserId(processId).equals(userId)) {
+                    logger.warn("User ID mismatch for process ID: {}, {}", processId, userId);
                     return Collections.emptyList();
                 }
                 return Collections.singletonList("VERIFICATION_PENDING");
