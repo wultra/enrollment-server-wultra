@@ -18,6 +18,7 @@
 
 package com.wultra.app.enrollmentserver.mock;
 
+import com.wultra.app.enrollmentserver.errorhandling.ActivationCodeException;
 import com.wultra.app.enrollmentserver.impl.service.DelegatingActivationCodeHandler;
 import com.wultra.security.powerauth.client.PowerAuthClient;
 import com.wultra.security.powerauth.client.model.error.PowerAuthClientException;
@@ -65,13 +66,13 @@ public class MockActivationCodeHandler implements DelegatingActivationCodeHandle
     }
 
     @Override
-    public List<String> addActivationFlags(String sourceActivationId, List<String> sourceActivationFlags, String userId, Long sourceAppId, List<String> sourceApplicationRoles, Long destinationAppId, String destinationActivationId, String activationCode, String activationCodeSignature) {
+    public List<String> addActivationFlags(String sourceActivationId, List<String> sourceActivationFlags, String userId, String applicationId, Long sourceAppId, List<String> sourceApplicationRoles, Long destinationAppId, String destinationActivationId, String activationCode, String activationCodeSignature) throws ActivationCodeException {
         logger.info("No activation flags will be added by activation code handler for activation ID: {}", destinationActivationId);
         return null;
     }
 
     @Override
-    public void didReturnActivationCode(String sourceActivationId, String userId, Long sourceAppId, Long destinationAppId, String destinationActivationId, String activationCode, String activationCodeSignature) {
+    public void didReturnActivationCode(String sourceActivationId, String userId, String applicationId, Long sourceAppId, Long destinationAppId, String destinationActivationId, String activationCode, String activationCodeSignature) throws ActivationCodeException {
         logger.info("Activation was successfully created in activation code handler, activation ID: {}, activation code: {}", destinationActivationId, activationCode);
     }
 }
