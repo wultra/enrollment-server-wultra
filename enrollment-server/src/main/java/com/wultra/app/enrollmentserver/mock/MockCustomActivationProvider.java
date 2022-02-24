@@ -27,6 +27,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import static io.getlime.security.powerauth.rest.api.model.entity.ActivationType.CUSTOM;
+import static io.getlime.security.powerauth.rest.api.model.entity.ActivationType.RECOVERY;
+
 /**
  * Default implementation of CustomActivationProvider interface.
  *
@@ -52,7 +55,11 @@ public class MockCustomActivationProvider implements CustomActivationProvider {
 
     @Override
     public boolean shouldAutoCommitActivation(Map<String, String> identityAttributes, Map<String, Object> customAttributes, String activationId, String userId, Long applId, ActivationType activationType, Map<String, Object> context) {
-        return true;
+        // Activation types RECOVERY and CUSTOM are auto-committed for tests
+        if (RECOVERY.equals(activationType) || CUSTOM.equals(activationType)) {
+            return true;
+        }
+        return false;
     }
 
     @Override
