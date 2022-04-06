@@ -19,13 +19,20 @@
  */
 package com.wultra.app.enrollmentserver.mock;
 
+import com.wultra.app.enrollmentserver.activation.ActivationOtpService;
+import com.wultra.app.enrollmentserver.activation.ActivationProcessService;
+import com.wultra.app.enrollmentserver.api.model.response.OtpVerifyResponse;
+import com.wultra.app.enrollmentserver.errorhandling.OnboardingProcessException;
+import com.wultra.app.enrollmentserver.model.enumeration.OnboardingStatus;
 import io.getlime.security.powerauth.rest.api.model.entity.ActivationType;
+import io.getlime.security.powerauth.rest.api.spring.exception.PowerAuthActivationException;
 import io.getlime.security.powerauth.rest.api.spring.provider.CustomActivationProvider;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 import static io.getlime.security.powerauth.rest.api.model.entity.ActivationType.CUSTOM;
 import static io.getlime.security.powerauth.rest.api.model.entity.ActivationType.RECOVERY;
@@ -38,8 +45,39 @@ import static io.getlime.security.powerauth.rest.api.model.entity.ActivationType
 @Component
 public class MockCustomActivationProvider implements CustomActivationProvider {
 
+    private static final Logger logger = LoggerFactory.getLogger(MockCustomActivationProvider.class);
+
+    private final ActivationProcessService onboardingProcessService;
+    private final ActivationOtpService onboardingOtpService;
+
+    @Autowired
+    public MockCustomActivationProvider(ActivationProcessService onboardingProcessService, ActivationOtpService onboardingOtpService) {
+        this.onboardingProcessService = onboardingProcessService;
+        this.onboardingOtpService = onboardingOtpService;
+    }
+
     @Override
-    public String lookupUserIdForAttributes(Map<String, String> identityAttributes, Map<String, Object> context) {
+    public String lookupUserIdForAttributes(Map<String, String> identityAttributes, Map<String, Object> context) throws PowerAuthActivationException {
+        // Testing of onboarding process, identityAttributes contain processId and otpCode
+        if (identityAttributes.containsKey("processId")) {
+            String processId = identityAttributes.get("processId");
+            String otpCode = identityAttributes.get("otpCode");
+            if (otpCode == null) {
+                logger.warn("Missing OTP code during custom activation for process ID: " + processId);
+                throw new PowerAuthActivationException();
+            }
+            try {
+                // Lookup user ID using process stored in database
+                OtpVerifyResponse verifyResponse = onboardingOtpService.verifyOtpCode(processId, otpCode);
+                if (verifyResponse.isVerified()) {
+                    return onboardingProcessService.getUserId(processId);
+                }
+                throw new PowerAuthActivationException();
+            } catch (OnboardingProcessException e) {
+                logger.warn("Onboarding process failed, process ID: {}", processId);
+                throw new PowerAuthActivationException();
+            }
+        }
         return identityAttributes.get("username");
     }
 
@@ -63,7 +101,19 @@ public class MockCustomActivationProvider implements CustomActivationProvider {
     }
 
     @Override
-    public void activationWasCommitted(Map<String, String> identityAttributes, Map<String, Object> customAttributes, String activationId, String userId, Long applId, ActivationType activationType, Map<String, Object> context) {
+    public void activationWasCommitted(Map<String, String> identityAttributes, Map<String, Object> customAttributes, String activationId, String userId, Long applId, ActivationType activationType, Map<String, Object> context) throws PowerAuthActivationException {
+        // Testing of onboarding process, identityAttributes contain processId and otpCode
+        if (identityAttributes.containsKey("processId")) {
+            String processId = identityAttributes.get("processId");
+            try {
+                // Update onboarding process
+                onboardingProcessService.updateProcess(processId, userId, activationId, OnboardingStatus.VERIFICATION_IN_PROGRESS);
+                logger.info("Activation was created for user ID: {}, activation ID: {}, process ID: {}", userId, activationId, processId);
+            } catch (OnboardingProcessException e) {
+                logger.warn("Onboarding process failed, process ID: {}", processId);
+                throw new PowerAuthActivationException();
+            }
+        }
     }
 
     @Override
@@ -76,5 +126,24 @@ public class MockCustomActivationProvider implements CustomActivationProvider {
     public Long getValidityPeriodDuringActivation(Map<String, String> identityAttributes, Map<String, Object> customAttributes, String userId, ActivationType activationType, Map<String, Object> context) {
         // Null value means use value configured on PowerAuth server
         return null;
+    }
+
+    public List<String> getActivationFlags(Map<String, String> identityAttributes, Map<String, Object> customAttributes, String activationId, String userId, Long appId, ActivationType activationType, Map<String, Object> context) {
+        // Testing of onboarding process, the VERIFICATION_PENDING flag needs to be added
+        if (identityAttributes.containsKey("processId")) {
+            String processId = identityAttributes.get("processId");
+            try {
+                // Check user ID in onboarding process
+                if (!onboardingProcessService.getUserId(processId).equals(userId)) {
+                    logger.warn("User ID mismatch for process ID: {}, {}", processId, userId);
+                    return Collections.emptyList();
+                }
+                return Collections.singletonList("VERIFICATION_PENDING");
+            } catch (OnboardingProcessException e) {
+                logger.warn("Onboarding process failed, process ID: {}", processId);
+                return Collections.emptyList();
+            }
+        }
+        return Collections.emptyList();
     }
 }
