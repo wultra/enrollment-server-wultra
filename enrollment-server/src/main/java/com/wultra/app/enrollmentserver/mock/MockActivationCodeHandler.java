@@ -47,14 +47,14 @@ public class MockActivationCodeHandler implements DelegatingActivationCodeHandle
     }
 
     @Override
-    public Long fetchDestinationApplicationId(String applicationId, Long sourceAppId, List<String> activationFlags, List<String> applicationRoles) {
+    public String fetchDestinationApplicationId(String applicationId, String sourceAppId, List<String> activationFlags, List<String> applicationRoles) {
         logger.info("Destination application ID requested in activation code handler for application: {}, source application ID: {}", applicationId, sourceAppId);
         try {
             List<GetApplicationListResponse.Applications> appList = powerAuthClient.getApplicationList();
             for (GetApplicationListResponse.Applications app : appList) {
-                if (app.getApplicationName().equals(applicationId)) {
-                    logger.info("Destination application ID was resolved: {}", app.getId());
-                    return app.getId();
+                if (app.getApplicationId().equals(applicationId)) {
+                    logger.info("Destination application ID was resolved: {}", app.getApplicationId());
+                    return app.getApplicationId();
                 }
             }
         } catch (PowerAuthClientException ex) {
@@ -65,13 +65,13 @@ public class MockActivationCodeHandler implements DelegatingActivationCodeHandle
     }
 
     @Override
-    public List<String> addActivationFlags(String sourceActivationId, List<String> sourceActivationFlags, String userId, String applicationId, Long sourceAppId, List<String> sourceApplicationRoles, Long destinationAppId, String destinationActivationId, String activationCode, String activationCodeSignature) {
+    public List<String> addActivationFlags(String sourceActivationId, List<String> sourceActivationFlags, String userId, String applicationId, String sourceAppId, List<String> sourceApplicationRoles, String destinationAppId, String destinationActivationId, String activationCode, String activationCodeSignature) {
         logger.info("No activation flags will be added by activation code handler for activation ID: {}", destinationActivationId);
         return null;
     }
 
     @Override
-    public void didReturnActivationCode(String sourceActivationId, String userId, String applicationId, Long sourceAppId, Long destinationAppId, String destinationActivationId, String activationCode, String activationCodeSignature) {
+    public void didReturnActivationCode(String sourceActivationId, String userId, String applicationId, String sourceAppId, String destinationAppId, String destinationActivationId, String activationCode, String activationCodeSignature) {
         logger.info("Activation was successfully created in activation code handler, activation ID: {}, activation code: {}", destinationActivationId, activationCode);
     }
 }

@@ -95,14 +95,14 @@ public class MobileTokenService {
      */
     public OperationListResponse operationListForUser(
             @NotNull String userId,
-            @NotNull Long applicationId,
+            @NotNull String applicationId,
             @NotNull String language,
             List<String> activationFlags,
             boolean pendingOnly) throws PowerAuthClientException, MobileTokenConfigurationException {
 
         final OperationListForUserRequest request = new OperationListForUserRequest();
         request.setUserId(userId);
-        request.setApplicationId(applicationId);
+        request.setApplicationId(List.of(applicationId));
         final MultiValueMap<String, String> queryParams = httpCustomizationService.getQueryParams();
         final MultiValueMap<String, String> httpHeaders = httpCustomizationService.getHttpHeaders();
         final com.wultra.security.powerauth.client.model.response.OperationListResponse pendingList =
@@ -143,7 +143,7 @@ public class MobileTokenService {
     public Response operationApprove(
             @NotNull String activationId,
             @NotNull String userId,
-            @NotNull Long applicationId,
+            @NotNull String applicationId,
             @NotNull String operationId,
             @NotNull String data,
             @NotNull PowerAuthSignatureTypes signatureFactors,
@@ -224,7 +224,7 @@ public class MobileTokenService {
     public Response operationReject(
             @NotNull String activationId,
             @NotNull String userId,
-            @NotNull Long applicationId,
+            @NotNull String applicationId,
             @NotNull String operationId,
             @NotNull RequestContext requestContext,
             List<String> activationFlags) throws MobileTokenException, PowerAuthClientException {
