@@ -82,7 +82,7 @@ public class MockCustomActivationProvider implements CustomActivationProvider {
     }
 
     @Override
-    public Map<String, Object> processCustomActivationAttributes(Map<String, Object> customAttributes, String activationId, String userId, Long applId, ActivationType activationType, Map<String, Object> context) {
+    public Map<String, Object> processCustomActivationAttributes(Map<String, Object> customAttributes, String activationId, String userId, String appId, ActivationType activationType, Map<String, Object> context) {
         if (customAttributes != null) {
             // Copy custom attributes
             return new HashMap<>(customAttributes);
@@ -92,7 +92,7 @@ public class MockCustomActivationProvider implements CustomActivationProvider {
     }
 
     @Override
-    public boolean shouldAutoCommitActivation(Map<String, String> identityAttributes, Map<String, Object> customAttributes, String activationId, String userId, Long applId, ActivationType activationType, Map<String, Object> context) {
+    public boolean shouldAutoCommitActivation(Map<String, String> identityAttributes, Map<String, Object> customAttributes, String activationId, String userId, String appId, ActivationType activationType, Map<String, Object> context) {
         // Activation types RECOVERY and CUSTOM are auto-committed for tests
         if (RECOVERY.equals(activationType) || CUSTOM.equals(activationType)) {
             return true;
@@ -101,7 +101,7 @@ public class MockCustomActivationProvider implements CustomActivationProvider {
     }
 
     @Override
-    public void activationWasCommitted(Map<String, String> identityAttributes, Map<String, Object> customAttributes, String activationId, String userId, Long applId, ActivationType activationType, Map<String, Object> context) throws PowerAuthActivationException {
+    public void activationWasCommitted(Map<String, String> identityAttributes, Map<String, Object> customAttributes, String activationId, String userId, String appId, ActivationType activationType, Map<String, Object> context) throws PowerAuthActivationException {
         // Testing of onboarding process, identityAttributes contain processId and otpCode
         if (identityAttributes.containsKey("processId")) {
             String processId = identityAttributes.get("processId");
