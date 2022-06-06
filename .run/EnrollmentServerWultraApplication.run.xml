@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="EnrollmentServerWultraApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
+    <option name="ACTIVE_PROFILES" value="dev" />
+    <module name="enrollment-server" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="com.wultra.app.enrollmentserver.EnrollmentServerApplication" />
+    <option name="VM_PARAMETERS" value="-Dserver.servlet.context-path=/enrollment-server" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
