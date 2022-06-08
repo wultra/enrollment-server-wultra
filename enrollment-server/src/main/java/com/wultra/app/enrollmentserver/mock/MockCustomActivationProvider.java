@@ -128,7 +128,8 @@ public class MockCustomActivationProvider implements CustomActivationProvider {
         return null;
     }
 
-    public List<String> getActivationFlags(Map<String, String> identityAttributes, Map<String, Object> customAttributes, String activationId, String userId, Long appId, ActivationType activationType, Map<String, Object> context) {
+    @Override
+    public List<String> getActivationFlags(Map<String, String> identityAttributes, Map<String, Object> customAttributes, String activationId, String userId, String appId, ActivationType activationType, Map<String, Object> context) {
         // Testing of onboarding process, the VERIFICATION_PENDING flag needs to be added
         if (identityAttributes.containsKey("processId")) {
             String processId = identityAttributes.get("processId");
