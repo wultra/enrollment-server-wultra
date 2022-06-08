@@ -96,13 +96,13 @@ public class OnboardingOtpController {
 
         Optional<OnboardingOtpEntity> otpOptional = onboardingOtpRepository.findLastOtp(processId, otpType);
         if (!otpOptional.isPresent()) {
-            logger.warn("OTP not found for process ID: " + processId);
+            logger.warn("OTP not found for process ID: {}", processId);
             throw new OnboardingProcessException();
         }
 
         OnboardingOtpEntity otp = otpOptional.get();
         if (otp.getStatus() != OtpStatus.ACTIVE) {
-            logger.warn("OTP is not ACTIVE for process ID: " + processId);
+            logger.warn("OTP is not ACTIVE for process ID: {}", processId);
             throw new OnboardingProcessException();
         }
 
