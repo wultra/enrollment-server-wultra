@@ -63,7 +63,7 @@ public class MockCustomActivationProvider implements CustomActivationProvider {
             String processId = identityAttributes.get("processId");
             String otpCode = identityAttributes.get("otpCode");
             if (otpCode == null) {
-                logger.warn("Missing OTP code during custom activation for process ID: " + processId);
+                logger.warn("Missing OTP code during custom activation for process ID: {}", processId);
                 throw new PowerAuthActivationException();
             }
             try {
