@@ -15,10 +15,10 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.wultra.app.enrollmentserver.mock;
+package com.wultra.app.onboardingserver.mock;
 
-import com.wultra.app.enrollmentserver.errorhandling.OnboardingProviderException;
-import com.wultra.app.enrollmentserver.provider.OnboardingProvider;
+import com.wultra.app.onboardingserver.errorhandling.OnboardingProviderException;
+import com.wultra.app.onboardingserver.provider.OnboardingProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;

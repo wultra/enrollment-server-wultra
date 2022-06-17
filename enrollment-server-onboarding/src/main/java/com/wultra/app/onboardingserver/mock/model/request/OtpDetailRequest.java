@@ -1,4 +1,4 @@
-package com.wultra.app.enrollmentserver.mock.model.request;
+package com.wultra.app.onboardingserver.mock.model.request;
 
 import com.wultra.app.enrollmentserver.model.enumeration.OtpType;
 import lombok.Data;

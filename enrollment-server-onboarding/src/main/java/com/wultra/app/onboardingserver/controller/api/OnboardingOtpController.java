@@ -17,15 +17,15 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.wultra.app.enrollmentserver.mock.controller.v3;
+package com.wultra.app.onboardingserver.controller.api;
 
-import com.wultra.app.enrollmentserver.database.OnboardingOtpRepository;
-import com.wultra.app.enrollmentserver.database.entity.OnboardingOtpEntity;
-import com.wultra.app.enrollmentserver.errorhandling.OnboardingProcessException;
-import com.wultra.app.enrollmentserver.mock.model.request.OtpDetailRequest;
-import com.wultra.app.enrollmentserver.mock.model.response.OtpDetailResponse;
 import com.wultra.app.enrollmentserver.model.enumeration.OtpStatus;
 import com.wultra.app.enrollmentserver.model.enumeration.OtpType;
+import com.wultra.app.onboardingserver.database.OnboardingOtpRepository;
+import com.wultra.app.onboardingserver.database.entity.OnboardingOtpEntity;
+import com.wultra.app.onboardingserver.errorhandling.OnboardingProcessException;
+import com.wultra.app.onboardingserver.mock.model.request.OtpDetailRequest;
+import com.wultra.app.onboardingserver.mock.model.response.OtpDetailResponse;
 import io.getlime.core.rest.model.base.request.ObjectRequest;
 import io.getlime.core.rest.model.base.response.ObjectResponse;
 import io.getlime.security.powerauth.crypto.lib.encryptor.ecies.model.EciesScope;

@@ -1,4 +1,4 @@
-package com.wultra.app.enrollmentserver.mock.model.response;
+package com.wultra.app.onboardingserver.mock.model.response;
 
 import lombok.Data;
 
