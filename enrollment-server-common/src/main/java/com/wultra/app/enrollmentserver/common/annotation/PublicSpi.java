@@ -15,22 +15,21 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.wultra.app.onboardingserver.errorhandling;
+package com.wultra.app.enrollmentserver.common.annotation;
+
+import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Target;
 
 /**
- * Exception thrown in case onboarding process fails.
+ * Marker for interfaces intended to be implemented by downstream projects. These interfaces are called by core functionality.
+ * <p>
+ * Slight compatible modifications of the contract are allowed.
+ * Do not add new methods to interfaces or abstract classes implemented by some providers.
  *
- * @author Roman Strobl, roman.strobl@wultra.com
+ * @author Lubos Racansky, lubos.racansky@wultra.com
  */
-public class OnboardingProcessException extends Exception {
-
-    private static final long serialVersionUID = 7558022671624330227L;
-
-    public OnboardingProcessException() {
-    }
-
-    public OnboardingProcessException(String message) {
-        super(message);
-    }
-
+@Target({ElementType.CONSTRUCTOR, ElementType.METHOD, ElementType.TYPE, ElementType.FIELD})
+@Documented
+public @interface PublicSpi {
 }
