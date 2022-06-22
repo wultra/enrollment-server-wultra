@@ -17,13 +17,12 @@
  */
 package com.wultra.app.onboardingserver.mock;
 
-import com.wultra.app.onboardingserver.errorhandling.OnboardingProviderException;
+import com.wultra.app.onboardingserver.provider.LookupUserRequest;
 import com.wultra.app.onboardingserver.provider.OnboardingProvider;
+import com.wultra.app.onboardingserver.provider.SendOtpCodeRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-
-import java.util.Map;
 
 /**
  * Mock onboarding provider for testing purposes.
@@ -36,13 +35,16 @@ public class MockOnboardingProvider implements OnboardingProvider {
     private static final Logger logger = LoggerFactory.getLogger(MockOnboardingProvider.class);
 
     @Override
-    public String lookupUser(Map<String, Object> identification) throws OnboardingProviderException {
-        logger.info("Lookup user called: {}", identification);
-        return "mockuser_" + identification.get("clientId");
+    public String lookupUser(LookupUserRequest request) {
+        logger.info("Lookup user called: {}", request.getIdentification());
+        return "mockuser_" + request.getIdentification().get("clientId");
     }
 
     @Override
-    public void sendOtpCode(String userId, String otpCode, boolean resend) throws OnboardingProviderException {
+    public void sendOtpCode(SendOtpCodeRequest request) {
+        final String userId = request.getUserId();
+        final String otpCode = request.getOtpCode();
+        final boolean resend = request.isResend();
         logger.info("Send OTP code called, user ID: {}, OTP code: {}, resend: {}", userId, otpCode, resend);
     }
 

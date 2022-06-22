@@ -19,11 +19,11 @@
  */
 package com.wultra.app.onboardingserver.controller.api;
 
+import com.wultra.app.enrollmentserver.common.onboarding.errorhandling.OnboardingProcessException;
 import com.wultra.app.enrollmentserver.model.enumeration.OtpStatus;
 import com.wultra.app.enrollmentserver.model.enumeration.OtpType;
 import com.wultra.app.onboardingserver.database.OnboardingOtpRepository;
 import com.wultra.app.onboardingserver.database.entity.OnboardingOtpEntity;
-import com.wultra.app.onboardingserver.errorhandling.OnboardingProcessException;
 import com.wultra.app.onboardingserver.mock.model.request.OtpDetailRequest;
 import com.wultra.app.onboardingserver.mock.model.response.OtpDetailResponse;
 import io.getlime.core.rest.model.base.request.ObjectRequest;
