@@ -18,20 +18,21 @@
 package com.wultra.app.onboardingserver.impl.service;
 
 import com.wultra.app.enrollmentserver.api.model.response.OtpVerifyResponse;
+import com.wultra.app.enrollmentserver.common.onboarding.errorhandling.OnboardingProcessException;
+import com.wultra.app.enrollmentserver.model.enumeration.IdentityVerificationPhase;
+import com.wultra.app.enrollmentserver.model.enumeration.IdentityVerificationStatus;
+import com.wultra.app.enrollmentserver.model.enumeration.OtpStatus;
+import com.wultra.app.enrollmentserver.model.enumeration.OtpType;
+import com.wultra.app.enrollmentserver.model.integration.OwnerId;
 import com.wultra.app.onboardingserver.database.OnboardingOtpRepository;
 import com.wultra.app.onboardingserver.database.OnboardingProcessRepository;
 import com.wultra.app.onboardingserver.database.entity.IdentityVerificationEntity;
 import com.wultra.app.onboardingserver.database.entity.OnboardingOtpEntity;
 import com.wultra.app.onboardingserver.database.entity.OnboardingProcessEntity;
 import com.wultra.app.onboardingserver.errorhandling.OnboardingOtpDeliveryException;
-import com.wultra.app.onboardingserver.errorhandling.OnboardingProcessException;
 import com.wultra.app.onboardingserver.errorhandling.OnboardingProviderException;
-import com.wultra.app.enrollmentserver.model.enumeration.IdentityVerificationPhase;
-import com.wultra.app.enrollmentserver.model.enumeration.IdentityVerificationStatus;
-import com.wultra.app.enrollmentserver.model.enumeration.OtpStatus;
-import com.wultra.app.enrollmentserver.model.enumeration.OtpType;
-import com.wultra.app.enrollmentserver.model.integration.OwnerId;
 import com.wultra.app.onboardingserver.provider.OnboardingProvider;
+import com.wultra.app.onboardingserver.provider.SendOtpCodeRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,7 +52,7 @@ public class IdentityVerificationOtpService {
 
     private final OnboardingProcessRepository onboardingProcessRepository;
     private final OnboardingOtpRepository onboardingOtpRepository;
-    private final OtpService otpService;
+    private final OtpServiceImpl otpService;
 
     private OnboardingProvider onboardingProvider;
 
@@ -61,7 +62,7 @@ public class IdentityVerificationOtpService {
      * @param onboardingOtpRepository Onboarding OTP repository.
      * @param otpService OTP service.
      */
-    public IdentityVerificationOtpService(OnboardingProcessRepository onboardingProcessRepository, OnboardingOtpRepository onboardingOtpRepository, OtpService otpService) {
+    public IdentityVerificationOtpService(OnboardingProcessRepository onboardingProcessRepository, OnboardingOtpRepository onboardingOtpRepository, OtpServiceImpl otpService) {
         this.onboardingProcessRepository = onboardingProcessRepository;
         this.onboardingOtpRepository = onboardingOtpRepository;
         this.otpService = otpService;
@@ -158,7 +159,12 @@ public class IdentityVerificationOtpService {
         }
         // Send the OTP code
         try {
-            onboardingProvider.sendOtpCode(process.getUserId(), otpCode, isResend);
+            final SendOtpCodeRequest request = SendOtpCodeRequest.builder()
+                    .userId(process.getUserId())
+                    .otpCode(otpCode)
+                    .resend(isResend)
+                    .build();
+            onboardingProvider.sendOtpCode(request);
         } catch (OnboardingProviderException e) {
             logger.warn("OTP code delivery failed, error: {}", e.getMessage(), e);
             throw new OnboardingOtpDeliveryException();

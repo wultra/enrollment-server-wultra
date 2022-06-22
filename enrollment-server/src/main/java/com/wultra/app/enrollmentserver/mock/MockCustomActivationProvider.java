@@ -17,13 +17,13 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.wultra.app.onboardingserver.mock;
+package com.wultra.app.enrollmentserver.mock;
 
 import com.wultra.app.enrollmentserver.api.model.response.OtpVerifyResponse;
+import com.wultra.app.enrollmentserver.common.onboarding.errorhandling.OnboardingProcessException;
 import com.wultra.app.enrollmentserver.model.enumeration.OnboardingStatus;
-import com.wultra.app.onboardingserver.activation.ActivationOtpService;
-import com.wultra.app.onboardingserver.activation.ActivationProcessService;
-import com.wultra.app.onboardingserver.errorhandling.OnboardingProcessException;
+import com.wultra.app.enrollmentserver.onboarding.activation.ActivationOtpService;
+import com.wultra.app.enrollmentserver.onboarding.activation.ActivationProcessService;
 import io.getlime.security.powerauth.rest.api.model.entity.ActivationType;
 import io.getlime.security.powerauth.rest.api.spring.exception.PowerAuthActivationException;
 import io.getlime.security.powerauth.rest.api.spring.provider.CustomActivationProvider;

@@ -17,19 +17,32 @@
  */
 package com.wultra.app.onboardingserver.provider;
 
+import com.wultra.app.enrollmentserver.common.annotation.PublicSpi;
 import com.wultra.app.onboardingserver.errorhandling.OnboardingProviderException;
-
-import java.util.Map;
 
 /**
  * Provider which allows customization of the onboarding process.
  *
  * @author Roman Strobl, roman.strobl@wultra.com
  */
+@PublicSpi
 public interface OnboardingProvider {
 
-    String lookupUser(Map<String, Object> identification) throws OnboardingProviderException;
+    /**
+     * Lookup user.
+     *
+     * @param request lookup user request
+     * @return user identifier
+     * @throws OnboardingProviderException if there is a problem to lookup user
+     */
+    String lookupUser(LookupUserRequest request) throws OnboardingProviderException;
 
-    void sendOtpCode(String userId, String otpCode, boolean resend) throws OnboardingProviderException;
+    /**
+     * Send otp code.
+     *
+     * @param request send otp code request
+     * @throws OnboardingProviderException if there is a problem to send otp code
+     */
+    void sendOtpCode(SendOtpCodeRequest request) throws OnboardingProviderException;
 
 }
