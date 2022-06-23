@@ -49,6 +49,7 @@ import io.getlime.security.powerauth.rest.api.spring.encryption.EciesEncryptionC
 import io.getlime.security.powerauth.rest.api.spring.exception.PowerAuthAuthenticationException;
 import io.getlime.security.powerauth.rest.api.spring.exception.PowerAuthEncryptionException;
 import io.getlime.security.powerauth.rest.api.spring.exception.authentication.PowerAuthTokenInvalidException;
+import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -128,6 +129,7 @@ public class IdentityVerificationController {
     /**
      * Initialize identity verification.
      * @param request Initialize identity verification request.
+     * @param eciesContext ECIES context.
      * @param apiAuthentication PowerAuth authentication.
      * @return Response.
      * @throws PowerAuthAuthenticationException Thrown when request authentication fails.
@@ -141,14 +143,18 @@ public class IdentityVerificationController {
             PowerAuthSignatureTypes.POSSESSION
     })
     public Response initializeIdentityVerification(@EncryptedRequestBody ObjectRequest<IdentityVerificationInitRequest> request,
+                                                   @Parameter(hidden = true) EciesEncryptionContext eciesContext,
                                                    @Parameter(hidden = true) PowerAuthApiAuthentication apiAuthentication)
-            throws PowerAuthAuthenticationException, IdentityVerificationException, RemoteCommunicationException, OnboardingProcessException {
+            throws PowerAuthAuthenticationException, IdentityVerificationException, RemoteCommunicationException, OnboardingProcessException, PowerAuthEncryptionException {
+
         // Check if the authentication object is present
         if (apiAuthentication == null) {
             logger.error("Unable to verify device registration when initializing identity verification");
             throw new PowerAuthAuthenticationException("Unable to verify device registration when initializing identity verification");
         }
-
+        if (eciesContext == null) {
+            throw new PowerAuthEncryptionException("ECIES encryption failed");
+        }
         if (request == null || request.getRequestObject() == null) {
             logger.error("Invalid request received when initializing identity verification");
             throw new PowerAuthAuthenticationException("Invalid request received when initializing identity verification");
@@ -588,6 +594,58 @@ public class IdentityVerificationController {
             logger.debug("Skipped presence check cleanup, not enabled");
         }
 
+        return new Response();
+    }
+
+    @PostMapping("consent/text")
+    @Operation(
+            summary = "Obtain consent text",
+            description = "Obtain a text of user consent in specified language."
+    )
+    @PowerAuthEncryption(scope = EciesScope.ACTIVATION_SCOPE)
+    public ObjectResponse<OnboardingConsentTextResponse> fetchConsentText(
+            final @EncryptedRequestBody ObjectRequest<OnboardingConsentTextRequest> request,
+            @Parameter(hidden = true) EciesEncryptionContext eciesContext) throws OnboardingProcessException, PowerAuthEncryptionException {
+
+        if (eciesContext == null) {
+            throw new PowerAuthEncryptionException("ECIES encryption failed");
+        }
+        if (request == null || request.getRequestObject() == null) {
+            throw new PowerAuthEncryptionException("Invalid request received");
+        }
+        final OnboardingConsentTextRequest requestObject = request.getRequestObject();
+        logger.debug("Returning consent for {}", requestObject);
+        OnboardingConsentTextRequestValidator.validate(requestObject);
+        final OnboardingConsentTextResponse onboardingConsentTextResponse = onboardingService.fetchConsentText(requestObject);
+        return new ObjectResponse<>(onboardingConsentTextResponse);
+    }
+
+    @PostMapping("consent/approve")
+    @Operation(
+            summary = "Store user consent",
+            description = "Store user consent, whether approved or not."
+    )
+    @PowerAuthEncryption(scope = EciesScope.ACTIVATION_SCOPE)
+    @PowerAuth(resourceId = "/api/identity/consent/approve", signatureType = PowerAuthSignatureTypes.POSSESSION)
+    public Response approveConsent(
+            final @EncryptedRequestBody ObjectRequest<OnboardingConsentApprovalRequest> request,
+            final @Parameter(hidden = true) EciesEncryptionContext eciesContext,
+            final @Parameter(hidden = true) PowerAuthApiAuthentication apiAuthentication) throws OnboardingProcessException, PowerAuthAuthenticationException, PowerAuthEncryptionException {
+
+        if (apiAuthentication == null) {
+            throw new PowerAuthAuthenticationException("Unable to authenticate");
+        }
+        if (eciesContext == null) {
+            throw new PowerAuthEncryptionException("ECIES encryption failed");
+        }
+        if (request == null || request.getRequestObject() == null) {
+            throw new PowerAuthEncryptionException("Invalid request received");
+        }
+
+        final OnboardingConsentApprovalRequest requestObject = request.getRequestObject();
+        logger.debug("Approving consent for {}", requestObject);
+        OnboardingConsentApprovalRequestValidator.validate(requestObject);
+        onboardingService.approveConsent(requestObject);
         return new Response();
     }
 
