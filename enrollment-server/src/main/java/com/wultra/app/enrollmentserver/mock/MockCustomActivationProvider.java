@@ -19,10 +19,10 @@
  */
 package com.wultra.app.enrollmentserver.mock;
 
-import com.wultra.app.enrollmentserver.api.model.response.OtpVerifyResponse;
+import com.wultra.app.enrollmentserver.api.model.onboarding.response.OtpVerifyResponse;
 import com.wultra.app.enrollmentserver.model.enumeration.OnboardingStatus;
-import com.wultra.app.enrollmentserver.onboarding.activation.ActivationOtpService;
-import com.wultra.app.enrollmentserver.onboarding.activation.ActivationProcessService;
+import com.wultra.app.onboardingserver.common.activation.ActivationOtpService;
+import com.wultra.app.onboardingserver.common.activation.ActivationProcessService;
 import com.wultra.app.onboardingserver.common.errorhandling.OnboardingProcessException;
 import io.getlime.security.powerauth.rest.api.model.entity.ActivationType;
 import io.getlime.security.powerauth.rest.api.spring.exception.PowerAuthActivationException;
