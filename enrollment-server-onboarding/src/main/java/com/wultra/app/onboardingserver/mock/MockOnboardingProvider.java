@@ -36,9 +36,12 @@ public class MockOnboardingProvider implements OnboardingProvider {
     private static final Logger logger = LoggerFactory.getLogger(MockOnboardingProvider.class);
 
     @Override
-    public String lookupUser(LookupUserRequest request) {
+    public LookupUserResponse lookupUser(LookupUserRequest request) {
         logger.info("Lookup user called: {}", request.getIdentification());
-        return "mockuser_" + request.getIdentification().get("clientId");
+        return LookupUserResponse.builder()
+                .userId("mockuser_" + request.getIdentification().get("clientId"))
+                .consentRequired(true)
+                .build();
     }
 
     @Override
