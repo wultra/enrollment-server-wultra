@@ -15,7 +15,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.wultra.app.enrollmentserver.onboarding.activation;
+package com.wultra.app.enrollmentserver.configuration;
 
 import com.wultra.app.onboardingserver.common.activation.ActivationOtpService;
 import com.wultra.app.onboardingserver.common.activation.ActivationProcessService;
