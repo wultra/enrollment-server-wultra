@@ -26,6 +26,7 @@ import com.wultra.app.onboardingserver.common.database.OnboardingOtpRepository;
 import com.wultra.app.onboardingserver.common.database.OnboardingProcessRepository;
 import com.wultra.app.onboardingserver.common.service.CommonOnboardingService;
 import com.wultra.app.onboardingserver.common.service.CommonOtpService;
+import com.wultra.app.onboardingserver.common.service.CommonProcessLimitService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
@@ -81,9 +82,10 @@ public class OnboardingComponentsConfiguration {
     public OtpService otpService(
             final OnboardingOtpRepository onboardingOtpRepository,
             final OnboardingProcessRepository onboardingProcessRepository,
-            final CommonOnboardingConfig onboardingConfig) {
+            final CommonOnboardingConfig onboardingConfig,
+            final CommonProcessLimitService commonProcessLimitService) {
 
-        return new CommonOtpService(onboardingOtpRepository, onboardingProcessRepository, onboardingConfig);
+        return new CommonOtpService(onboardingOtpRepository, onboardingProcessRepository, onboardingConfig, commonProcessLimitService);
     }
 
     /**
@@ -94,6 +96,17 @@ public class OnboardingComponentsConfiguration {
     @Bean
     public CommonOnboardingConfig onboardingConfig() {
         return new CommonOnboardingConfig();
+    }
+
+    /**
+     * Register process limit service.
+     * @param config
+     * @param onboardingProcessRepository
+     * @return
+     */
+    @Bean
+    public CommonProcessLimitService processLimitService(final CommonOnboardingConfig config, final OnboardingProcessRepository onboardingProcessRepository) {
+        return new CommonProcessLimitService(config, onboardingProcessRepository);
     }
 
     /**
