@@ -17,26 +17,33 @@
  *
  */
 
-package com.wultra.app.onboardingserver.impl.util;
-
-import java.time.Duration;
-import java.util.Date;
+package com.wultra.app.onboardingserver.common.enumeration;
 
 /**
- * Utility class for date conversions.
+ * Enumeration with onboarding process errors with error scores.
  *
  * @author Roman Strobl, roman.strobl@wultra.com
  */
-public class DateUtil {
+public enum OnboardingProcessError {
 
-    /**
-     * Convert expiration time interval to minimal created date used for expiration.
-     * @param expiration Expiration time interval.
-     * @return Created date used for expiration.
-     */
-    public static Date convertExpirationToCreatedDate(Duration expiration) {
-        long currentTime = System.currentTimeMillis();
-        long expiredTime = currentTime - expiration.toMillis();
-        return new Date(expiredTime);
+    ERROR_ACTIVATION_OTP_FAILED(1),
+
+    ERROR_DOCUMENT_VERIFICATION_FAILED(1),
+
+    ERROR_DOCUMENT_VERIFICATION_REJECTED(2),
+
+    ERROR_USER_VERIFICATION_OTP_FAILED(2),
+
+    ERROR_IDENTITY_VERIFICATION_RESET(3);
+
+    private final int errorScore;
+
+    OnboardingProcessError(int errorScore) {
+        this.errorScore = errorScore;
     }
+
+    public int getErrorScore() {
+        return errorScore;
+    }
+
 }

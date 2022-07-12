@@ -29,6 +29,11 @@ import com.wultra.app.enrollmentserver.model.integration.DocumentsVerificationRe
 import com.wultra.app.enrollmentserver.model.integration.Image;
 import com.wultra.app.enrollmentserver.model.integration.OwnerId;
 import com.wultra.app.enrollmentserver.model.integration.VerificationSdkInfo;
+import com.wultra.app.onboardingserver.common.database.entity.OnboardingProcessEntity;
+import com.wultra.app.onboardingserver.common.enumeration.OnboardingProcessError;
+import com.wultra.app.onboardingserver.common.errorhandling.OnboardingProcessException;
+import com.wultra.app.onboardingserver.common.service.CommonOnboardingService;
+import com.wultra.app.onboardingserver.common.service.CommonProcessLimitService;
 import com.wultra.app.onboardingserver.configuration.IdentityVerificationConfig;
 import com.wultra.app.onboardingserver.database.DocumentDataRepository;
 import com.wultra.app.onboardingserver.database.DocumentVerificationRepository;
@@ -70,6 +75,9 @@ public class IdentityVerificationService {
     private final VerificationProcessingService verificationProcessingService;
     private final DocumentVerificationProvider documentVerificationProvider;
     private final IdentityVerificationResetService identityVerificationResetService;
+    private final IdentityVerificationLimitService identityVerificationLimitService;
+    private final CommonOnboardingService processService;
+    private final CommonProcessLimitService processLimitService;
 
     private static final List<DocumentStatus> DOCUMENT_STATUSES_PROCESSED = Arrays.asList(DocumentStatus.ACCEPTED, DocumentStatus.FAILED, DocumentStatus.REJECTED);
 
@@ -84,6 +92,9 @@ public class IdentityVerificationService {
      * @param verificationProcessingService Verification processing service.
      * @param documentVerificationProvider Document verification provider.
      * @param identityVerificationResetService Identity verification reset service.
+     * @param identityVerificationLimitService Identity verification limit service.
+     * @param processService Common onboarding process service.
+     * @param processLimitService Onboarding process limit service.
      */
     @Autowired
     public IdentityVerificationService(
@@ -95,7 +106,7 @@ public class IdentityVerificationService {
             IdentityVerificationCreateService identityVerificationCreateService,
             VerificationProcessingService verificationProcessingService,
             DocumentVerificationProvider documentVerificationProvider,
-            IdentityVerificationResetService identityVerificationResetService) {
+            IdentityVerificationResetService identityVerificationResetService, IdentityVerificationLimitService identityVerificationLimitService, CommonOnboardingService processService, CommonProcessLimitService processLimitService) {
         this.identityVerificationConfig = identityVerificationConfig;
         this.documentDataRepository = documentDataRepository;
         this.documentVerificationRepository = documentVerificationRepository;
@@ -105,6 +116,9 @@ public class IdentityVerificationService {
         this.verificationProcessingService = verificationProcessingService;
         this.documentVerificationProvider = documentVerificationProvider;
         this.identityVerificationResetService = identityVerificationResetService;
+        this.identityVerificationLimitService = identityVerificationLimitService;
+        this.processService = processService;
+        this.processLimitService = processLimitService;
     }
 
     /**
@@ -133,15 +147,21 @@ public class IdentityVerificationService {
      * @param request Document submit request.
      * @param ownerId Owner identification.
      * @return Document verification entities.
+     * @throws DocumentSubmitException Thrown when document submission fails.
+     * @throws IdentityVerificationLimitException Thrown when document upload limit is reached.
+     * @throws RemoteCommunicationException Thrown when communication with PowerAuth server fails.
+     * @throws IdentityVerificationException Thrown when identity verification is invalid.
+     * @throws OnboardingProcessLimitException Thrown when maximum failed attempts for identity verification have been reached.
+     * @throws OnboardingProcessException Thrown when onboarding process is invalid.
      */
     public List<DocumentVerificationEntity> submitDocuments(DocumentSubmitRequest request,
                                                             OwnerId ownerId)
-            throws DocumentSubmitException {
+            throws DocumentSubmitException, IdentityVerificationLimitException, RemoteCommunicationException, IdentityVerificationException, OnboardingProcessLimitException, OnboardingProcessException {
 
         // Find an already existing identity verification
         Optional<IdentityVerificationEntity> idVerificationOptional = findBy(ownerId);
 
-        if (!idVerificationOptional.isPresent()) {
+        if (idVerificationOptional.isEmpty()) {
             logger.error("Identity verification has not been initialized, {}", ownerId);
             throw new DocumentSubmitException("Identity verification has not been initialized");
         }
@@ -173,6 +193,8 @@ public class IdentityVerificationService {
             );
             throw new DocumentSubmitException("Not allowed submit of documents during not in progress status");
         }
+
+        identityVerificationLimitService.checkDocumentUploadLimit(ownerId, idVerification);
 
         List<DocumentVerificationEntity> docsVerifications =
                 documentProcessingService.submitDocuments(idVerification, request, ownerId);
@@ -249,10 +271,11 @@ public class IdentityVerificationService {
      * @param ownerId Owner identification.
      * @param idVerification Verification identity
      * @throws DocumentVerificationException Thrown when an error during verification check occurred.
+     * @throws OnboardingProcessException Thrown when onboarding process is invalid.
      */
     @Transactional(Transactional.TxType.REQUIRES_NEW)
     public void checkVerificationResult(IdentityVerificationPhase phase, OwnerId ownerId, IdentityVerificationEntity idVerification)
-            throws DocumentVerificationException {
+            throws DocumentVerificationException, OnboardingProcessException {
         List<DocumentVerificationEntity> allDocVerifications =
                 documentVerificationRepository.findAllDocumentVerifications(idVerification,
                         Collections.singletonList(DocumentStatus.VERIFICATION_IN_PROGRESS));
@@ -278,6 +301,18 @@ public class IdentityVerificationService {
         resolveIdentityVerificationResult(phase, idVerification, allDocVerifications);
         idVerification.setTimestampLastUpdated(ownerId.getTimestamp());
         identityVerificationRepository.save(idVerification);
+
+        // Update process error score in case of a failed verification and check process error limits
+        if (idVerification.getStatus() == IdentityVerificationStatus.FAILED || idVerification.getStatus() == IdentityVerificationStatus.REJECTED) {
+            OnboardingProcessEntity process = processService.findProcess(idVerification.getProcessId());
+            if (idVerification.getStatus() == IdentityVerificationStatus.FAILED) {
+                processLimitService.incrementErrorScore(process, OnboardingProcessError.ERROR_DOCUMENT_VERIFICATION_FAILED);
+            }
+            if (idVerification.getStatus() == IdentityVerificationStatus.REJECTED) {
+                processLimitService.incrementErrorScore(process, OnboardingProcessError.ERROR_DOCUMENT_VERIFICATION_REJECTED);
+            }
+            processLimitService.checkOnboardingProcessErrorLimits(process);
+        }
     }
 
     /**
@@ -345,7 +380,7 @@ public class IdentityVerificationService {
         Optional<IdentityVerificationEntity> idVerificationOptional =
                 identityVerificationRepository.findFirstByActivationIdOrderByTimestampCreatedDesc(ownerId.getActivationId());
 
-        if (!idVerificationOptional.isPresent()) {
+        if (idVerificationOptional.isEmpty()) {
             logger.error("Checking identity verification status on a not existing entity, {}", ownerId);
             response.setStatus(IdentityVerificationStatus.FAILED);
             return response;
@@ -397,10 +432,11 @@ public class IdentityVerificationService {
      * @throws RemoteCommunicationException Thrown when communication with PowerAuth server fails.
      * @throws IdentityVerificationException Thrown when identity verification reset fails.
      * @throws OnboardingProcessLimitException Thrown when maximum failed attempts for identity verification have been reached.
+     * @throws OnboardingProcessException Thrown when onboarding process is invalid.
      */
     @Transactional
     public void cleanup(OwnerId ownerId)
-            throws DocumentVerificationException, PresenceCheckException, RemoteCommunicationException, IdentityVerificationException, OnboardingProcessLimitException {
+            throws DocumentVerificationException, PresenceCheckException, RemoteCommunicationException, IdentityVerificationException, OnboardingProcessLimitException, OnboardingProcessException {
 
         List<String> uploadIds = documentVerificationRepository.findAllUploadIds(ownerId.getActivationId());
 

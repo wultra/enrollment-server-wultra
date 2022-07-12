@@ -32,4 +32,7 @@ public class CommonOnboardingConfig {
     @Value("${enrollment-server-onboarding.onboarding-process.otp.max-failed-attempts:5}")
     private int otpMaxFailedAttempts;
 
+    @Value("${enrollment-server-onboarding.onboarding-process.max-error-score:15}")
+    private int maxProcessErrorScore;
+
 }
