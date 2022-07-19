@@ -64,12 +64,23 @@ public class MockCustomActivationProvider implements CustomActivationProvider {
         // Testing of onboarding process, identityAttributes contain processId and otpCode
         if (identityAttributes.containsKey("processId")) {
             String processId = identityAttributes.get("processId");
+            if (processId == null) {
+                logger.warn("Missing process ID during custom activation");
+                throw new PowerAuthActivationException();
+            }
             String otpCode = identityAttributes.get("otpCode");
             if (otpCode == null) {
                 logger.warn("Missing OTP code during custom activation for process ID: {}", processId);
                 throw new PowerAuthActivationException();
             }
             try {
+                // Check onboarding process status
+                OnboardingStatus status = onboardingProcessService.getProcessStatus(processId);
+                if (status != OnboardingStatus.ACTIVATION_IN_PROGRESS) {
+                    logger.warn("Onboaridng process is in invalid state for process ID: {}, status: {}", processId, status);
+                    throw new PowerAuthActivationException();
+                }
+
                 // Lookup user ID using process stored in database
                 OtpVerifyResponse verifyResponse = onboardingOtpService.verifyOtpCode(processId, otpCode);
                 if (verifyResponse.isVerified()) {
