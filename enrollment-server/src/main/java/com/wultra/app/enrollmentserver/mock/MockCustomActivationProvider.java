@@ -77,7 +77,7 @@ public class MockCustomActivationProvider implements CustomActivationProvider {
                 // Check onboarding process status
                 OnboardingStatus status = onboardingProcessService.getProcessStatus(processId);
                 if (status != OnboardingStatus.ACTIVATION_IN_PROGRESS) {
-                    logger.warn("Onboaridng process is in invalid state for process ID: {}, status: {}", processId, status);
+                    logger.warn("Onboarding process is in invalid state for process ID: {}, status: {}", processId, status);
                     throw new PowerAuthActivationException();
                 }
 
