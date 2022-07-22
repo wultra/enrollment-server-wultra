@@ -20,6 +20,7 @@ package com.wultra.app.onboardingserver.mock;
 import com.wultra.app.onboardingserver.provider.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.Locale;
@@ -34,6 +35,9 @@ import java.util.UUID;
 public class MockOnboardingProvider implements OnboardingProvider {
 
     private static final Logger logger = LoggerFactory.getLogger(MockOnboardingProvider.class);
+
+    @Value("${enrollment-server-onboarding.presence-check.mock.consent-text}")
+    private String consentText;
 
     @Override
     public LookupUserResponse lookupUser(LookupUserRequest request) {
@@ -59,17 +63,7 @@ public class MockOnboardingProvider implements OnboardingProvider {
         final String consentType = request.getConsentType();
         final Locale locale = request.getLocale();
         logger.info("Fetching consent for processId: {}, userId: {}, consentType: {}, locale: {}", processId, userId, consentType, locale);
-
-        return "<html><body>" +
-                "<h1>Lorem ipsum</h1>" +
-                "Lorem ipsum dolor sit amet, consectetuer adipiscing elit. Etiam posuere lacus quis dolor. Nullam feugiat, turpis at pulvinar" +
-                " vulputate, erat libero tristique tellus, nec bibendum odio risus sit amet ante. Nullam at arcu a est sollicitudin euismod. " +
-                "Aliquam in lorem sit amet leo accumsan lacinia. Duis condimentum augue id magna semper rutrum. Sed convallis magna eu sem. " +
-                "Pellentesque arcu. Phasellus faucibus molestie nisl. Maecenas fermentum, sem in pharetra pellentesque, velit turpis volutpat " +
-                "ante, in pharetra metus odio a lectus. Nullam feugiat, turpis at pulvinar vulputate, erat libero tristique tellus, nec bibendum " +
-                "odio risus sit amet ante. Quis autem vel eum iure reprehenderit qui in ea voluptate velit esse quam nihil molestiae consequatur, " +
-                "vel illum qui dolorem eum fugiat quo voluptas nulla pariatur?" +
-                "</body></html>";
+        return consentText;
     }
 
     @Override
