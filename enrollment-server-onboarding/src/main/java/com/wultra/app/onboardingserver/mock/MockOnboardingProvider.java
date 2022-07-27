@@ -43,7 +43,7 @@ public class MockOnboardingProvider implements OnboardingProvider {
     public LookupUserResponse lookupUser(LookupUserRequest request) {
         logger.info("Lookup user called: {}", request.getIdentification());
         return LookupUserResponse.builder()
-                .userId("mockuser_" + request.getIdentification().get("clientId"))
+                .userId("mockuser_" + request.getIdentification().get("clientNumber"))
                 .consentRequired(true)
                 .build();
     }
