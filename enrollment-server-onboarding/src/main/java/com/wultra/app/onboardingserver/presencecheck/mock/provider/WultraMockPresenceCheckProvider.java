@@ -70,7 +70,21 @@ public class WultraMockPresenceCheckProvider implements PresenceCheckProvider {
     }
 
     @Override
-    public PresenceCheckResult getResult(OwnerId id, SessionInfo sessionInfo) throws PresenceCheckException {
+    public PresenceCheckResult getResult(OwnerId id, SessionInfo sessionInfo) {
+        if (id.getUserId().endsWith("_PRESENCE_CHECK_REJECTED")) {
+            logger.info("Mock - provided rejected result, {}", id);
+            final PresenceCheckResult result = new PresenceCheckResult();
+            result.setStatus(PresenceCheckStatus.REJECTED);
+            result.setRejectReason("User ID ends with _PRESENCE_CHECK_REJECTED");
+            return result;
+        } else if (id.getUserId().endsWith("_PRESENCE_CHECK_FAILED")) {
+            logger.info("Mock - provided failed result, {}", id);
+            final PresenceCheckResult result = new PresenceCheckResult();
+            result.setStatus(PresenceCheckStatus.FAILED);
+            result.setErrorDetail("User ID ends with _PRESENCE_CHECK_FAILED");
+            return result;
+        }
+
         String selfiePhotoPath = "/images/specimen_photo.jpg";
         Image photo = new Image();
         try (InputStream is = WultraMockPresenceCheckProvider.class.getResourceAsStream(selfiePhotoPath)) {
