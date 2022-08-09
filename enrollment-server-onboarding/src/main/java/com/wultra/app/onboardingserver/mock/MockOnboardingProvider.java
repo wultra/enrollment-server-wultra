@@ -22,6 +22,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
 
 import java.util.Locale;
 import java.util.UUID;
@@ -62,7 +63,7 @@ public class MockOnboardingProvider implements OnboardingProvider {
         final String userId = request.getUserId();
         final String consentType = request.getConsentType();
         final Locale locale = request.getLocale();
-        logger.info("Fetching consent for processId: {}, userId: {}, consentType: {}, locale: {}", processId, userId, consentType, locale);
+        logger.info("Fetching consent for process ID: {}, user ID: {}, consentType: {}, locale: {}", processId, userId, consentType, locale);
         return consentText;
     }
 
@@ -73,7 +74,19 @@ public class MockOnboardingProvider implements OnboardingProvider {
         final String consentType = request.getConsentType();
         final Boolean approved = request.getApproved();
 
-        logger.info("Approved consent for processId: {}, userId: {}, consentType: {}, approved: {}", processId, userId, consentType, approved);
+        logger.info("Approved consent for process ID: {}, user ID: {}, consentType: {}, approved: {}", processId, userId, consentType, approved);
         return new ApproveConsentResponse();
+    }
+
+    @Override
+    public Mono<EvaluateClientResponse> evaluateClient(EvaluateClientRequest request) {
+        final UUID processId = request.getProcessId();
+        final String userId = request.getUserId();
+        final String verificationId = request.getVerificationId();
+        final String identityVerificationId = request.getIdentityVerificationId();
+
+        logger.info("Evaluating client for process ID: {}, user ID: {}, verification ID: {}, identityVerification ID: {}",
+                processId, userId, verificationId, identityVerificationId);
+        return Mono.just(EvaluateClientResponse.builder().successful(true).build());
     }
 }
