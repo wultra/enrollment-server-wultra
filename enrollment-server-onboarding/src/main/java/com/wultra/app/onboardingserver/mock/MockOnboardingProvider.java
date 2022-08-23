@@ -17,6 +17,7 @@
  */
 package com.wultra.app.onboardingserver.mock;
 
+import com.wultra.app.onboardingserver.errorhandling.OnboardingProviderException;
 import com.wultra.app.onboardingserver.provider.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +26,7 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -41,10 +43,17 @@ public class MockOnboardingProvider implements OnboardingProvider {
     private String consentText;
 
     @Override
-    public LookupUserResponse lookupUser(LookupUserRequest request) {
-        logger.info("Lookup user called: {}", request.getIdentification());
+    public LookupUserResponse lookupUser(LookupUserRequest request) throws OnboardingProviderException {
+        final Map<String, Object> identification = request.getIdentification();
+        logger.info("Lookup user called: {}", identification);
+
+        if (Boolean.TRUE.equals(identification.get("shouldFail"))) {
+            logger.info("Mock asked to fail via identification flag");
+            throw new OnboardingProviderException("Mock asked to fail");
+        }
+
         return LookupUserResponse.builder()
-                .userId("mockuser_" + request.getIdentification().get("clientNumber"))
+                .userId("mockuser_" + identification.get("clientNumber"))
                 .consentRequired(true)
                 .build();
     }
