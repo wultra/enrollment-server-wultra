@@ -37,10 +37,7 @@ import com.wultra.app.onboardingserver.common.errorhandling.OnboardingProcessExc
 import com.wultra.app.onboardingserver.common.service.CommonOnboardingService;
 import com.wultra.app.onboardingserver.configuration.IdentityVerificationConfig;
 import com.wultra.app.onboardingserver.configuration.OnboardingConfig;
-import com.wultra.app.onboardingserver.errorhandling.InvalidRequestObjectException;
-import com.wultra.app.onboardingserver.errorhandling.OnboardingOtpDeliveryException;
-import com.wultra.app.onboardingserver.errorhandling.OnboardingProviderException;
-import com.wultra.app.onboardingserver.errorhandling.TooManyProcessesException;
+import com.wultra.app.onboardingserver.errorhandling.*;
 import com.wultra.app.onboardingserver.impl.util.DateUtil;
 import com.wultra.app.onboardingserver.provider.*;
 import io.getlime.core.rest.model.base.response.Response;
@@ -52,8 +49,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import javax.transaction.Transactional;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.util.*;
@@ -73,6 +70,8 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
     private final OnboardingConfig onboardingConfig;
     private final IdentityVerificationConfig identityVerificationConfig;
     private final OtpServiceImpl otpService;
+
+    private final ActivationService activationService;
 
     // Special instance of ObjectMapper for normalized serialization of identification data
     private final ObjectMapper normalizedMapper = JsonMapper
@@ -100,12 +99,14 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
             final OnboardingConfig config,
             final IdentityVerificationConfig identityVerificationConfig,
             final OtpServiceImpl otpService,
+            final ActivationService activationService,
             final OnboardingProvider onboardingProvider) {
 
         super(onboardingProcessRepository);
         this.onboardingConfig = config;
         this.identityVerificationConfig = identityVerificationConfig;
         this.otpService = otpService;
+        this.activationService = activationService;
         this.onboardingProvider = onboardingProvider;
     }
 
@@ -120,51 +121,38 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
     @Transactional
     public OnboardingStartResponse startOnboarding(OnboardingStartRequest request) throws OnboardingProcessException, OnboardingOtpDeliveryException, TooManyProcessesException, InvalidRequestObjectException {
         final Map<String, Object> identification = request.getIdentification();
-
-        final String identificationData;
-        try {
-            identificationData = normalizedMapper.writeValueAsString(identification);
-        } catch (JsonProcessingException ex) {
-            logger.warn("Invalid identification data: {}", identification);
-            throw new InvalidRequestObjectException();
-        }
+        final String identificationData = parseIdentificationData(identification);
 
         final OnboardingProcessEntity process = onboardingProcessRepository.findExistingProcessByIdentificationData(identificationData, OnboardingStatus.ACTIVATION_IN_PROGRESS)
                 .map(it -> resumeExistingProcess(it, identification))
                 .orElseGet(() -> createNewProcess(identification, identificationData));
 
         // Check for brute force attacks
-        Calendar c = Calendar.getInstance();
+        final Calendar c = Calendar.getInstance();
         c.add(Calendar.HOUR, -24);
-        Date timestampCheckStart = c.getTime();
+        final Date timestampCheckStart = c.getTime();
         final String userId = process.getUserId();
-        int existingProcessCount = onboardingProcessRepository.countProcessesAfterTimestamp(userId, timestampCheckStart);
+        final int existingProcessCount = onboardingProcessRepository.countProcessesAfterTimestamp(userId, timestampCheckStart);
         if (existingProcessCount > onboardingConfig.getMaxProcessCountPerDay()) {
             process.setStatus(OnboardingStatus.FAILED);
             process.setErrorDetail(OnboardingProcessEntity.ERROR_TOO_MANY_PROCESSES_PER_USER);
             process.setErrorOrigin(ErrorOrigin.PROCESS_LIMIT_CHECK);
+            final Date now = new Date();
+            process.setTimestampLastUpdated(now);
+            process.setTimestampFailed(now);
             onboardingProcessRepository.save(process);
             logger.warn("Maximum number of processes per day reached for user: {}", userId);
             throw new TooManyProcessesException();
         }
 
-        // Create an OTP code
-        String otpCode = otpService.createOtpCode(process, OtpType.ACTIVATION);
-        // Send the OTP code
-        try {
-            final SendOtpCodeRequest sendOtpCodeRequest = SendOtpCodeRequest.builder()
-                    .processId(process.getId())
-                    .userId(userId)
-                    .otpCode(otpCode)
-                    .resend(false)
-                    .locale(LocaleContextHolder.getLocale())
-                    .otpType(SendOtpCodeRequest.OtpType.ACTIVATION)
-                    .build();
-            onboardingProvider.sendOtpCode(sendOtpCodeRequest);
-        } catch (OnboardingProviderException e) {
-            logger.warn("OTP code delivery failed, error: {}", e.getMessage(), e);
-            throw new OnboardingOtpDeliveryException(e);
+        final String otpCode = otpService.createOtpCode(process, OtpType.ACTIVATION);
+        if (userId == null) {
+            logger.debug("User ID is null, OTP is not sent");
+        } else {
+            logger.debug("Sending OTP for user ID: {}", userId);
+            sendOtp(process, otpCode);
         }
+
         OnboardingStartResponse response = new OnboardingStartResponse();
         response.setProcessId(process.getId());
         response.setOnboardingStatus(process.getStatus());
@@ -178,27 +166,19 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
      * @throws OnboardingProcessException Thrown when OTP resend fails.
      */
     @Transactional
-    public Response resendOtp(OnboardingOtpResendRequest request) throws OnboardingProcessException, OnboardingOtpDeliveryException {
-        String processId = request.getProcessId();
-        OnboardingProcessEntity process = findProcess(processId);
-        String userId = process.getUserId();
-        // Create an OTP code
-        String otpCode = otpService.createOtpCodeForResend(process, OtpType.ACTIVATION);
-        // Resend the OTP code
-        try {
-            final SendOtpCodeRequest sendOtpCodeRequest = SendOtpCodeRequest.builder()
-                    .processId(processId)
-                    .userId(userId)
-                    .otpCode(otpCode)
-                    .locale(LocaleContextHolder.getLocale())
-                    .resend(true)
-                    .otpType(SendOtpCodeRequest.OtpType.ACTIVATION)
-                    .build();
-            onboardingProvider.sendOtpCode(sendOtpCodeRequest);
-        } catch (OnboardingProviderException e) {
-            logger.warn("OTP code resend failed, error: {}", e.getMessage(), e);
-            throw new OnboardingOtpDeliveryException(e);
+    public Response resendOtp(final OnboardingOtpResendRequest request) throws OnboardingProcessException, OnboardingOtpDeliveryException {
+        final OnboardingProcessEntity process = findProcess(request.getProcessId());
+        final String userId = process.getUserId();
+
+        final String otpCode = otpService.createOtpCodeForResend(process, OtpType.ACTIVATION);
+
+        if (userId == null) {
+            logger.debug("User ID is not present, OTP is not resent");
+        } else {
+            logger.debug("Resending OTP for user ID: {}", userId);
+            resendOtp(process, otpCode);
         }
+
         return new Response();
     }
 
@@ -250,10 +230,14 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
         otpService.cancelOtp(processOptional.get(), OtpType.USER_VERIFICATION);
         OnboardingProcessEntity process = processOptional.get();
         process.setStatus(OnboardingStatus.FAILED);
-        process.setTimestampLastUpdated(new Date());
         process.setErrorDetail(OnboardingProcessEntity.ERROR_PROCESS_CANCELED);
         process.setErrorOrigin(ErrorOrigin.USER_REQUEST);
+        process.setTimestampLastUpdated(new Date());
+        process.setTimestampFailed(new Date());
         onboardingProcessRepository.save(process);
+
+        removeActivation(process);
+
         return new Response();
     }
 
@@ -315,15 +299,17 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
     @Scheduled(fixedDelayString = "PT15S", initialDelayString = "PT15S")
     @SchedulerLock(name = "terminateInactiveProcesses", lockAtLeastFor = "1s", lockAtMostFor = "5m")
     public void terminateInactiveProcesses() {
+        final Date now = new Date();
+
         // Terminate processes with activations in progress
         final Duration activationExpiration = onboardingConfig.getActivationExpirationTime();
         final Date createdDateExpiredActivations = DateUtil.convertExpirationToCreatedDate(activationExpiration);
-        onboardingProcessRepository.terminateExpiredProcessesByStatus(createdDateExpiredActivations, OnboardingStatus.ACTIVATION_IN_PROGRESS, OnboardingProcessEntity.ERROR_PROCESS_EXPIRED_ACTIVATION);
+        onboardingProcessRepository.terminateExpiredProcessesByStatus(createdDateExpiredActivations, now, OnboardingStatus.ACTIVATION_IN_PROGRESS, OnboardingProcessEntity.ERROR_PROCESS_EXPIRED_ACTIVATION, ErrorOrigin.PROCESS_LIMIT_CHECK);
 
         // Terminate processes with verifications in progress
         final Duration verificationExpiration = identityVerificationConfig.getVerificationExpirationTime();
         final Date createdDateExpiredVerifications = DateUtil.convertExpirationToCreatedDate(verificationExpiration);
-        onboardingProcessRepository.terminateExpiredProcessesByStatus(createdDateExpiredVerifications, OnboardingStatus.VERIFICATION_IN_PROGRESS, OnboardingProcessEntity.ERROR_PROCESS_EXPIRED_IDENTITY_VERIFICATION);
+        onboardingProcessRepository.terminateExpiredProcessesByStatus(createdDateExpiredVerifications, now, OnboardingStatus.VERIFICATION_IN_PROGRESS, OnboardingProcessEntity.ERROR_PROCESS_EXPIRED_IDENTITY_VERIFICATION, ErrorOrigin.PROCESS_LIMIT_CHECK);
 
         // Terminate OTP codes for all processes
         final Duration otpExpiration = onboardingConfig.getOtpExpirationTime();
@@ -333,7 +319,7 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
         // Terminate expired processes
         final Duration processExpiration = onboardingConfig.getProcessExpirationTime();
         final Date createdDateExpiredProcesses = DateUtil.convertExpirationToCreatedDate(processExpiration);
-        onboardingProcessRepository.terminateExpiredProcesses(createdDateExpiredProcesses, OnboardingProcessEntity.ERROR_PROCESS_EXPIRED_ONBOARDING);
+        onboardingProcessRepository.terminateExpiredProcesses(createdDateExpiredProcesses, now, OnboardingProcessEntity.ERROR_PROCESS_EXPIRED_ONBOARDING, ErrorOrigin.PROCESS_LIMIT_CHECK);
     }
 
     /**
@@ -417,7 +403,7 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
         return onboardingProcess.getTimestampCreated().before(createdDateExpirationProcess);
     }
 
-    private String lookupUser(final String processId, final Map<String, Object> identification) throws OnboardingProcessException {
+    private String lookupUser(final String processId, final Map<String, Object> identification) {
         try {
             final LookupUserRequest lookupUserRequest = LookupUserRequest.builder()
                     .identification(identification)
@@ -425,11 +411,12 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
                     .build();
             return onboardingProvider.lookupUser(lookupUserRequest).getUserId();
         } catch (OnboardingProviderException e) {
-            throw new OnboardingProcessException("User lookup failed, error: " + e.getMessage(), e);
+            logger.info("User lookup failed, using null user ID, error: {}", e.getMessage());
+            logger.debug("User lookup failed, using null user ID", e);
+            return null;
         }
     }
 
-    @SneakyThrows(OnboardingProcessException.class)
     private OnboardingProcessEntity createNewProcess(final Map<String, Object> identification, final String identificationData) {
         final OnboardingProcessEntity process = createNewProcess(identificationData);
         logger.debug("Created process ID: {}", process.getId());
@@ -457,5 +444,61 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
                             userId, process.getUserId(), process.getId()));
         }
         return process;
+    }
+
+    private void removeActivation(final OnboardingProcessEntity process) throws OnboardingProcessException {
+        final String activationId = process.getActivationId();
+        if (activationId != null) {
+            try {
+                logger.info("Removing activation ID: {} of process ID: {}", activationId, process.getId());
+                activationService.removeActivation(activationId);
+            } catch (RemoteCommunicationException e) {
+                throw new OnboardingProcessException(
+                        String.format("Unable to remove activation ID: %s of process ID: %s", activationId, process.getId()), e);
+            }
+        }
+    }
+
+    private String parseIdentificationData(final Map<String, Object> identification) throws InvalidRequestObjectException {
+        try {
+            return normalizedMapper.writeValueAsString(identification);
+        } catch (JsonProcessingException ex) {
+            logger.warn("Invalid identification data: {}", identification);
+            throw new InvalidRequestObjectException();
+        }
+    }
+
+    private void sendOtp(final OnboardingProcessEntity process, final String otpCode) throws OnboardingOtpDeliveryException {
+        final SendOtpCodeRequest sendOtpCodeRequest = SendOtpCodeRequest.builder()
+                .processId(process.getId())
+                .userId(process.getUserId())
+                .otpCode(otpCode)
+                .resend(false)
+                .locale(LocaleContextHolder.getLocale())
+                .otpType(SendOtpCodeRequest.OtpType.ACTIVATION)
+                .build();
+        try {
+            onboardingProvider.sendOtpCode(sendOtpCodeRequest);
+        } catch (OnboardingProviderException e) {
+            logger.warn("OTP code delivery failed, error: {}", e.getMessage(), e);
+            throw new OnboardingOtpDeliveryException(e);
+        }
+    }
+
+    private void resendOtp(final OnboardingProcessEntity process, final String otpCode) throws OnboardingOtpDeliveryException {
+        final SendOtpCodeRequest sendOtpCodeRequest = SendOtpCodeRequest.builder()
+                .processId(process.getId())
+                .userId(process.getUserId())
+                .otpCode(otpCode)
+                .locale(LocaleContextHolder.getLocale())
+                .resend(true)
+                .otpType(SendOtpCodeRequest.OtpType.ACTIVATION)
+                .build();
+        try {
+            onboardingProvider.sendOtpCode(sendOtpCodeRequest);
+        } catch (OnboardingProviderException e) {
+            logger.warn("OTP code resend failed, error: {}", e.getMessage(), e);
+            throw new OnboardingOtpDeliveryException(e);
+        }
     }
 }

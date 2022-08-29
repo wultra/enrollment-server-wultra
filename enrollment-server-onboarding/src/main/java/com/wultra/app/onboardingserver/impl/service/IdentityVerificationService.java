@@ -48,8 +48,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.util.Streamable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
-import javax.transaction.Transactional;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -279,7 +280,7 @@ public class IdentityVerificationService {
      * @throws DocumentVerificationException Thrown when an error during verification check occurred.
      * @throws OnboardingProcessException Thrown when onboarding process is invalid.
      */
-    @Transactional(Transactional.TxType.REQUIRES_NEW)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void checkVerificationResult(IdentityVerificationPhase phase, OwnerId ownerId, IdentityVerificationEntity idVerification)
             throws DocumentVerificationException, OnboardingProcessException {
         List<DocumentVerificationEntity> allDocVerifications =
@@ -292,11 +293,9 @@ public class IdentityVerificationService {
                     .add(docVerification);
         }
 
-        for (String verificationId : verificationsById.keySet()) {
-            DocumentsVerificationResult docVerificationResult =
-                    documentVerificationProvider.getVerificationResult(ownerId, verificationId);
-            List<DocumentVerificationEntity> docVerifications = verificationsById.get(verificationId);
-            verificationProcessingService.processVerificationResult(ownerId, docVerifications, docVerificationResult);
+        for (Map.Entry<String, List<DocumentVerificationEntity>> entry : verificationsById.entrySet()) {
+            DocumentsVerificationResult docVerificationResult = documentVerificationProvider.getVerificationResult(ownerId, entry.getKey());
+            verificationProcessingService.processVerificationResult(ownerId, entry.getValue(), docVerificationResult);
         }
 
         if (allDocVerifications.stream()
@@ -348,10 +347,13 @@ public class IdentityVerificationService {
             IdentityVerificationPhase phase,
             IdentityVerificationEntity idVerification,
             List<DocumentVerificationEntity> docVerifications) {
+        final Date now = new Date();
         if (docVerifications.stream()
                 .allMatch(docVerification -> DocumentStatus.ACCEPTED.equals(docVerification.getStatus()))) {
             idVerification.setPhase(phase);
             idVerification.setStatus(IdentityVerificationStatus.ACCEPTED);
+            idVerification.setTimestampLastUpdated(now);
+            idVerification.setTimestampFinished(now);
         } else {
             docVerifications.stream()
                     .filter(docVerification -> DocumentStatus.FAILED.equals(docVerification.getStatus()))
@@ -360,6 +362,8 @@ public class IdentityVerificationService {
                         idVerification.setPhase(phase);
                         idVerification.setStatus(IdentityVerificationStatus.FAILED);
                         idVerification.setErrorDetail(failed.getErrorDetail());
+                        idVerification.setTimestampLastUpdated(now);
+                        idVerification.setTimestampFailed(now);
                         idVerification.setErrorOrigin(ErrorOrigin.DOCUMENT_VERIFICATION);
                     });
 
@@ -371,6 +375,8 @@ public class IdentityVerificationService {
                         idVerification.setStatus(IdentityVerificationStatus.REJECTED);
                         idVerification.setErrorDetail(failed.getRejectReason());
                         idVerification.setErrorOrigin(ErrorOrigin.DOCUMENT_VERIFICATION);
+                        idVerification.setTimestampLastUpdated(now);
+                        idVerification.setTimestampFinished(now);
                     });
         }
     }
