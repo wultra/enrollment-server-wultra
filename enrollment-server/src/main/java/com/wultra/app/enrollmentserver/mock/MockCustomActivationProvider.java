@@ -21,6 +21,7 @@ package com.wultra.app.enrollmentserver.mock;
 
 import com.wultra.app.enrollmentserver.api.model.onboarding.response.OtpVerifyResponse;
 import com.wultra.app.enrollmentserver.model.enumeration.OnboardingStatus;
+import com.wultra.app.enrollmentserver.model.integration.OwnerId;
 import com.wultra.app.onboardingserver.common.activation.ActivationOtpService;
 import com.wultra.app.onboardingserver.common.activation.ActivationProcessService;
 import com.wultra.app.onboardingserver.common.errorhandling.OnboardingProcessException;
@@ -82,7 +83,7 @@ public class MockCustomActivationProvider implements CustomActivationProvider {
                 }
 
                 // Lookup user ID using process stored in database
-                OtpVerifyResponse verifyResponse = onboardingOtpService.verifyOtpCode(processId, otpCode);
+                OtpVerifyResponse verifyResponse = onboardingOtpService.verifyOtpCode(processId, new OwnerId(), otpCode);
                 if (verifyResponse.isVerified()) {
                     return onboardingProcessService.getUserId(processId);
                 }
