@@ -26,6 +26,7 @@ import com.wultra.app.onboardingserver.common.database.DocumentVerificationRepos
 import com.wultra.app.onboardingserver.common.database.IdentityVerificationRepository;
 import com.wultra.app.onboardingserver.common.database.OnboardingOtpRepository;
 import com.wultra.app.onboardingserver.common.database.OnboardingProcessRepository;
+import com.wultra.app.onboardingserver.common.errorhandling.ActivationExceptionHandler;
 import com.wultra.app.onboardingserver.common.service.*;
 import com.wultra.security.powerauth.client.PowerAuthClient;
 import io.getlime.security.powerauth.rest.api.spring.service.HttpCustomizationService;
@@ -164,5 +165,14 @@ public class OnboardingComponentsConfiguration {
     @Bean
     public ActivationProcessService activationProcessService(final OnboardingService onboardingService) {
         return new ActivationProcessService(onboardingService);
+    }
+
+    /**
+     * Register activation exception handler for onboarding.
+     * @return Activation exception handler.
+     */
+    @Bean
+    public ActivationExceptionHandler activationExceptionHandler(){
+        return new ActivationExceptionHandler();
     }
 }
