@@ -97,9 +97,7 @@ public class MockCustomActivationProvider implements CustomActivationProvider {
                 if (verifyResponse.getRemainingAttempts() > 0) {
                     // There are remaining attempts for OTP verification
                     logger.info("OTP verification attempt failed during activation, process ID: {}, remaining attempts: {}", processId, verifyResponse.getRemainingAttempts());
-                    final PowerAuthActivationOtpException ex = new PowerAuthActivationOtpException();
-                    ex.setRemainingAttempts(verifyResponse.getRemainingAttempts());
-                    throw ex;
+                    throw new PowerAuthActivationOtpException(verifyResponse.getRemainingAttempts());
                 }
                 // All attempts for OTP verification have been used, onboarding process failed
                 logger.warn("Maximum number of OTP verification attempts reached during activation, process ID: {}, remaining attempts: {}", processId, verifyResponse.getRemainingAttempts());
