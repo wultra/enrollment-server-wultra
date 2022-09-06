@@ -25,6 +25,8 @@ import com.wultra.app.enrollmentserver.model.integration.OwnerId;
 import com.wultra.app.onboardingserver.common.activation.ActivationOtpService;
 import com.wultra.app.onboardingserver.common.activation.ActivationProcessService;
 import com.wultra.app.onboardingserver.common.errorhandling.OnboardingProcessException;
+import com.wultra.app.onboardingserver.common.errorhandling.PowerAuthActivationOtpException;
+import com.wultra.app.onboardingserver.common.errorhandling.PowerAuthActivationOtpFailedException;
 import io.getlime.security.powerauth.rest.api.model.entity.ActivationType;
 import io.getlime.security.powerauth.rest.api.spring.exception.PowerAuthActivationException;
 import io.getlime.security.powerauth.rest.api.spring.provider.CustomActivationProvider;
@@ -87,7 +89,19 @@ public class MockCustomActivationProvider implements CustomActivationProvider {
                 if (verifyResponse.isVerified()) {
                     return onboardingProcessService.getUserId(processId);
                 }
-                throw new PowerAuthActivationException();
+                if (verifyResponse.getOnboardingStatus() != OnboardingStatus.ACTIVATION_IN_PROGRESS) {
+                    // Onboarding process status is not ACTIVATION_IN_PROGRESS, onboarding process failed
+                    logger.info("Onboarding process failed during activation, process ID: {}, status: {}", processId, verifyResponse.getOnboardingStatus());
+                    throw new PowerAuthActivationException();
+                }
+                if (verifyResponse.getRemainingAttempts() > 0) {
+                    // There are remaining attempts for OTP verification
+                    logger.info("OTP verification attempt failed during activation, process ID: {}, remaining attempts: {}", processId, verifyResponse.getRemainingAttempts());
+                    throw new PowerAuthActivationOtpException(verifyResponse.getRemainingAttempts());
+                }
+                // All attempts for OTP verification have been used, onboarding process failed
+                logger.warn("Maximum number of OTP verification attempts reached during activation, process ID: {}, remaining attempts: {}", processId, verifyResponse.getRemainingAttempts());
+                throw new PowerAuthActivationOtpFailedException();
             } catch (OnboardingProcessException e) {
                 logger.warn("Onboarding process failed, process ID: {}", processId);
                 throw new PowerAuthActivationException();
