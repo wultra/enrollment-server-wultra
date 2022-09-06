@@ -22,11 +22,13 @@ import com.wultra.app.onboardingserver.common.activation.ActivationProcessServic
 import com.wultra.app.onboardingserver.common.api.OnboardingService;
 import com.wultra.app.onboardingserver.common.api.OtpService;
 import com.wultra.app.onboardingserver.common.configuration.CommonOnboardingConfig;
+import com.wultra.app.onboardingserver.common.database.DocumentVerificationRepository;
+import com.wultra.app.onboardingserver.common.database.IdentityVerificationRepository;
 import com.wultra.app.onboardingserver.common.database.OnboardingOtpRepository;
 import com.wultra.app.onboardingserver.common.database.OnboardingProcessRepository;
-import com.wultra.app.onboardingserver.common.service.CommonOnboardingService;
-import com.wultra.app.onboardingserver.common.service.CommonOtpService;
-import com.wultra.app.onboardingserver.common.service.CommonProcessLimitService;
+import com.wultra.app.onboardingserver.common.service.*;
+import com.wultra.security.powerauth.client.PowerAuthClient;
+import io.getlime.security.powerauth.rest.api.spring.service.HttpCustomizationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
@@ -83,9 +85,10 @@ public class OnboardingComponentsConfiguration {
             final OnboardingOtpRepository onboardingOtpRepository,
             final OnboardingProcessRepository onboardingProcessRepository,
             final CommonOnboardingConfig onboardingConfig,
-            final CommonProcessLimitService commonProcessLimitService) {
+            final OnboardingProcessLimitService processLimitService,
+            final IdentityVerificationLimitService identityVerificationLimitService) {
 
-        return new CommonOtpService(onboardingOtpRepository, onboardingProcessRepository, onboardingConfig, commonProcessLimitService);
+        return new CommonOtpService(onboardingOtpRepository, onboardingProcessRepository, onboardingConfig, processLimitService, identityVerificationLimitService);
     }
 
     /**
@@ -100,13 +103,45 @@ public class OnboardingComponentsConfiguration {
 
     /**
      * Register process limit service.
-     * @param config
-     * @param onboardingProcessRepository
-     * @return
+     * @param config Common onboarding process configuration.
+     * @param onboardingProcessRepository Onboarding process repository.
+     * @return Onboarding process limit service.
      */
     @Bean
-    public CommonProcessLimitService processLimitService(final CommonOnboardingConfig config, final OnboardingProcessRepository onboardingProcessRepository) {
-        return new CommonProcessLimitService(config, onboardingProcessRepository);
+    public OnboardingProcessLimitService processLimitService(final CommonOnboardingConfig config, final OnboardingProcessRepository onboardingProcessRepository) {
+        return new OnboardingProcessLimitService(config, onboardingProcessRepository);
+    }
+
+    /**
+     * Register identity verification limit service.
+     * @param identityVerificationRepository Identity verification repository.
+     * @param documentVerificationRepository Document verification repository.
+     * @param config Onboarding configuration.
+     * @param onboardingProcessRepository Onboarding process repository.
+     * @param activationFlagService Activation flag service.
+     * @param onboardingProcessLimitService Onboarding process limit service.
+     * @return Identity verificaftion limit service.
+     */
+    @Bean
+    public IdentityVerificationLimitService identityVerificationLimitService(
+            final IdentityVerificationRepository identityVerificationRepository,
+            final DocumentVerificationRepository documentVerificationRepository,
+            final CommonOnboardingConfig config,
+            final OnboardingProcessRepository onboardingProcessRepository,
+            final ActivationFlagService activationFlagService,
+            final OnboardingProcessLimitService onboardingProcessLimitService) {
+        return new IdentityVerificationLimitService(identityVerificationRepository, documentVerificationRepository, config, onboardingProcessRepository, activationFlagService, onboardingProcessLimitService);
+    }
+
+    /**
+     * Register activation flag service.
+     * @param powerAuthClient PowerAuth client.
+     * @param httpCustomizationService HTTP customization service.
+     * @return Activation flag service.
+     */
+    @Bean
+    public ActivationFlagService activationFlagService(PowerAuthClient powerAuthClient, HttpCustomizationService httpCustomizationService) {
+        return new ActivationFlagService(powerAuthClient, httpCustomizationService);
     }
 
     /**
