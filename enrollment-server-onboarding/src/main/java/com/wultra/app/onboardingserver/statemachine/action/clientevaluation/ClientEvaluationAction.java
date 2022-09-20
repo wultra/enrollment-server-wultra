@@ -14,12 +14,10 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
-package com.wultra.app.onboardingserver.statemachine.action.verification;
+package com.wultra.app.onboardingserver.statemachine.action.clientevaluation;
 
-import com.wultra.app.enrollmentserver.model.integration.OwnerId;
 import com.wultra.app.onboardingserver.common.database.entity.IdentityVerificationEntity;
-import com.wultra.app.onboardingserver.impl.service.IdentityVerificationService;
-import com.wultra.app.onboardingserver.statemachine.consts.EventHeaderName;
+import com.wultra.app.onboardingserver.impl.service.ClientEvaluationService;
 import com.wultra.app.onboardingserver.statemachine.consts.ExtendedStateVariable;
 import com.wultra.app.onboardingserver.statemachine.enums.OnboardingEvent;
 import com.wultra.app.onboardingserver.statemachine.enums.OnboardingState;
@@ -29,25 +27,24 @@ import org.springframework.statemachine.action.Action;
 import org.springframework.stereotype.Component;
 
 /**
- * Action to check identity documents for verification
+ * Action to process client evaluation.
  *
- * @author Lukas Lukovsky, lukas.lukovsky@wultra.com
+ * @author Lubos Racansky, lubos.racansky@wultra.com
  */
 @Component
-public class VerificationCheckIdentityDocumentsAction implements Action<OnboardingState, OnboardingEvent> {
+public class ClientEvaluationAction implements Action<OnboardingState, OnboardingEvent> {
 
-    private final IdentityVerificationService identityVerificationService;
+    private final ClientEvaluationService clientEvaluationService;
 
     @Autowired
-    public VerificationCheckIdentityDocumentsAction(IdentityVerificationService identityVerificationService) {
-        this.identityVerificationService = identityVerificationService;
+    public ClientEvaluationAction(ClientEvaluationService clientEvaluationService) {
+        this.clientEvaluationService = clientEvaluationService;
     }
 
     @Override
-    public void execute(StateContext <OnboardingState, OnboardingEvent> context) {
-        OwnerId ownerId = (OwnerId) context.getMessageHeader(EventHeaderName.OWNER_ID);
-        IdentityVerificationEntity identityVerification = context.getExtendedState().get(ExtendedStateVariable.IDENTITY_VERIFICATION, IdentityVerificationEntity.class);
-        identityVerificationService.checkIdentityDocumentsForVerification(ownerId, identityVerification);
-    }
+    public void execute(final StateContext<OnboardingState, OnboardingEvent> context) {
+        final IdentityVerificationEntity identityVerification = context.getExtendedState().get(ExtendedStateVariable.IDENTITY_VERIFICATION, IdentityVerificationEntity.class);
 
+        clientEvaluationService.processClientEvaluation(identityVerification);
+    }
 }
