@@ -16,16 +16,14 @@
  */
 package com.wultra.app.onboardingserver.statemachine;
 
+import com.wultra.app.onboardingserver.statemachine.action.clientevaluation.ClientEvaluationAction;
 import com.wultra.app.onboardingserver.statemachine.action.clientevaluation.ClientEvaluationInitAction;
 import com.wultra.app.onboardingserver.statemachine.action.otp.OtpVerificationResendAction;
 import com.wultra.app.onboardingserver.statemachine.action.otp.OtpVerificationSendAction;
 import com.wultra.app.onboardingserver.statemachine.action.presencecheck.PresenceCheckInitAction;
 import com.wultra.app.onboardingserver.statemachine.action.presencecheck.PresenceCheckNotInitializedAction;
 import com.wultra.app.onboardingserver.statemachine.action.presencecheck.PresenceCheckVerificationAction;
-import com.wultra.app.onboardingserver.statemachine.action.verification.VerificationCheckIdentityDocumentsAction;
-import com.wultra.app.onboardingserver.statemachine.action.verification.VerificationDocumentStartAction;
-import com.wultra.app.onboardingserver.statemachine.action.verification.VerificationInitAction;
-import com.wultra.app.onboardingserver.statemachine.action.verification.VerificationProcessResultAction;
+import com.wultra.app.onboardingserver.statemachine.action.verification.*;
 import com.wultra.app.onboardingserver.statemachine.enums.OnboardingEvent;
 import com.wultra.app.onboardingserver.statemachine.enums.OnboardingState;
 import com.wultra.app.onboardingserver.statemachine.guard.PresenceCheckEnabledGuard;
@@ -71,6 +69,8 @@ public class StateMachineConfig extends EnumStateMachineConfigurerAdapter<Onboar
 
     private final ClientEvaluationInitAction clientEvaluationInitAction;
 
+    private final ClientEvaluationAction clientEvaluationAction;
+
     private final OtpVerificationResendAction otpVerificationResendAction;
 
     private final OtpVerificationSendAction otpVerificationSendAction;
@@ -81,7 +81,9 @@ public class StateMachineConfig extends EnumStateMachineConfigurerAdapter<Onboar
 
     private final PresenceCheckVerificationAction presenceCheckVerificationAction;
 
-    private final VerificationCheckIdentityDocumentsAction verificationCheckIdentityDocumentsAction;
+    private final MoveToDocumentUploadVerificationPendingAction moveToDocumentUploadVerificationPendingAction;
+
+    private final DocumentsVerificationPendingGuard documentsVerificationPendingGuard;
 
     private final VerificationDocumentStartAction verificationDocumentStartAction;
 
@@ -109,12 +111,14 @@ public class StateMachineConfig extends EnumStateMachineConfigurerAdapter<Onboar
 
     public StateMachineConfig(
             final ClientEvaluationInitAction clientEvaluationInitAction,
+            final ClientEvaluationAction clientEvaluationAction,
             final OtpVerificationResendAction otpVerificationResendAction,
             final OtpVerificationSendAction otpVerificationSendAction,
             final PresenceCheckInitAction presenceCheckInitAction,
             final PresenceCheckNotInitializedAction presenceCheckNotInitializedAction,
             final PresenceCheckVerificationAction presenceCheckVerificationAction,
-            final VerificationCheckIdentityDocumentsAction verificationCheckIdentityDocumentsAction,
+            final MoveToDocumentUploadVerificationPendingAction moveToDocumentUploadVerificationPendingAction,
+            final DocumentsVerificationPendingGuard documentsVerificationPendingGuard,
             final VerificationDocumentStartAction verificationDocumentStartAction,
             final VerificationInitAction verificationInitAction,
             final VerificationProcessResultAction verificationProcessResultAction,
@@ -128,6 +132,7 @@ public class StateMachineConfig extends EnumStateMachineConfigurerAdapter<Onboar
             final StatusInProgressGuard statusInProgressGuard,
             final StatusRejectedGuard statusRejectedGuard) {
         this.clientEvaluationInitAction = clientEvaluationInitAction;
+        this.clientEvaluationAction = clientEvaluationAction;
         this.otpVerificationResendAction = otpVerificationResendAction;
         this.otpVerificationSendAction = otpVerificationSendAction;
 
@@ -135,7 +140,8 @@ public class StateMachineConfig extends EnumStateMachineConfigurerAdapter<Onboar
         this.presenceCheckNotInitializedAction = presenceCheckNotInitializedAction;
         this.presenceCheckVerificationAction = presenceCheckVerificationAction;
 
-        this.verificationCheckIdentityDocumentsAction = verificationCheckIdentityDocumentsAction;
+        this.moveToDocumentUploadVerificationPendingAction = moveToDocumentUploadVerificationPendingAction;
+        this.documentsVerificationPendingGuard = documentsVerificationPendingGuard;
         this.verificationDocumentStartAction = verificationDocumentStartAction;
         this.verificationInitAction = verificationInitAction;
         this.verificationProcessResultAction = verificationProcessResultAction;
@@ -232,7 +238,8 @@ public class StateMachineConfig extends EnumStateMachineConfigurerAdapter<Onboar
                 .withExternal()
                 .source(OnboardingState.DOCUMENT_UPLOAD_IN_PROGRESS)
                 .event(OnboardingEvent.EVENT_NEXT_STATE)
-                .action(verificationCheckIdentityDocumentsAction)
+                .guard(documentsVerificationPendingGuard)
+                .action(moveToDocumentUploadVerificationPendingAction)
                 .target(OnboardingState.CHOICE_DOCUMENT_UPLOAD)
 
                 .and()
@@ -248,6 +255,7 @@ public class StateMachineConfig extends EnumStateMachineConfigurerAdapter<Onboar
                 .source(OnboardingState.DOCUMENT_UPLOAD_VERIFICATION_PENDING)
                 .event(OnboardingEvent.EVENT_NEXT_STATE)
                 .action(verificationDocumentStartAction)
+                .guard(documentsVerificationPendingGuard)
                 .target(OnboardingState.CHOICE_DOCUMENT_VERIFICATION_PROCESSING)
 
                 .and()
@@ -272,6 +280,7 @@ public class StateMachineConfig extends EnumStateMachineConfigurerAdapter<Onboar
                 .withExternal()
                 .source(OnboardingState.CLIENT_EVALUATION_IN_PROGRESS)
                 .event(OnboardingEvent.EVENT_NEXT_STATE)
+                .action(clientEvaluationAction)
                 .target(OnboardingState.CHOICE_CLIENT_EVALUATION_PROCESSING)
 
                 .and()
