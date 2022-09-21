@@ -122,8 +122,9 @@ public class MockCustomActivationProvider implements CustomActivationProvider {
 
     @Override
     public boolean shouldAutoCommitActivation(Map<String, String> identityAttributes, Map<String, Object> customAttributes, String activationId, String userId, String appId, ActivationType activationType, Map<String, Object> context) {
-        // Activation types RECOVERY and CUSTOM are auto-committed for tests
+        logger.info("Deciding autocommit for activationId={}, activationType={}, identityAttributes={}", activationId, activationType, identityAttributes);
         if (RECOVERY.equals(activationType) || CUSTOM.equals(activationType)) {
+            logger.debug("Activation types RECOVERY and CUSTOM are auto-committed for tests");
             return true;
         }
         return false;
