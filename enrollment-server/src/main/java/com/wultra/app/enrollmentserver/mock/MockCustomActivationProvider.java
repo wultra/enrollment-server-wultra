@@ -30,8 +30,7 @@ import com.wultra.app.onboardingserver.common.errorhandling.PowerAuthActivationO
 import io.getlime.security.powerauth.rest.api.model.entity.ActivationType;
 import io.getlime.security.powerauth.rest.api.spring.exception.PowerAuthActivationException;
 import io.getlime.security.powerauth.rest.api.spring.provider.CustomActivationProvider;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -49,9 +48,11 @@ import static io.getlime.security.powerauth.rest.api.model.entity.ActivationType
  * @author Roman Strobl, roman.strobl@wultra.com
  */
 @Component
+@Slf4j
 public class MockCustomActivationProvider implements CustomActivationProvider {
 
-    private static final Logger logger = LoggerFactory.getLogger(MockCustomActivationProvider.class);
+    private static final String PA_CUSTOM_ACTIVATION_TYPE = "credentialsType";
+    private static final String PA_CUSTOM_ACTIVATION_TYPE_ONBOARDING = "ONBOARDING";
 
     private final ActivationProcessService onboardingProcessService;
     private final ActivationOtpService onboardingOtpService;
@@ -65,8 +66,9 @@ public class MockCustomActivationProvider implements CustomActivationProvider {
     @Override
     public String lookupUserIdForAttributes(Map<String, String> identityAttributes, Map<String, Object> context) throws PowerAuthActivationException {
         // Testing of onboarding process, identityAttributes contain processId and otpCode
-        if (identityAttributes.containsKey("processId")) {
-            String processId = identityAttributes.get("processId");
+        final String credentialsType = identityAttributes.get(PA_CUSTOM_ACTIVATION_TYPE);
+        if (PA_CUSTOM_ACTIVATION_TYPE_ONBOARDING.equals(credentialsType)) {
+            final String processId = fetchProcessId(identityAttributes);
             if (processId == null) {
                 logger.warn("Missing process ID during custom activation");
                 throw new PowerAuthActivationException();
@@ -123,7 +125,7 @@ public class MockCustomActivationProvider implements CustomActivationProvider {
     @Override
     public boolean shouldAutoCommitActivation(Map<String, String> identityAttributes, Map<String, Object> customAttributes, String activationId, String userId, String appId, ActivationType activationType, Map<String, Object> context) {
         logger.info("Deciding autocommit for activationId={}, activationType={}, identityAttributes={}", activationId, activationType, identityAttributes);
-        if (RECOVERY.equals(activationType) || CUSTOM.equals(activationType)) {
+        if (activationType == RECOVERY || activationType == CUSTOM) {
             logger.debug("Activation types RECOVERY and CUSTOM are auto-committed for tests");
             return true;
         }
@@ -133,8 +135,9 @@ public class MockCustomActivationProvider implements CustomActivationProvider {
     @Override
     public void activationWasCommitted(Map<String, String> identityAttributes, Map<String, Object> customAttributes, String activationId, String userId, String appId, ActivationType activationType, Map<String, Object> context) throws PowerAuthActivationException {
         // Testing of onboarding process, identityAttributes contain processId and otpCode
-        if (identityAttributes.containsKey("processId")) {
-            String processId = identityAttributes.get("processId");
+        final String credentialsType = identityAttributes.get(PA_CUSTOM_ACTIVATION_TYPE);
+        if (PA_CUSTOM_ACTIVATION_TYPE_ONBOARDING.equals(credentialsType)) {
+            final String processId = fetchProcessId(identityAttributes);
             try {
                 // Update onboarding process
                 onboardingProcessService.updateProcess(processId, userId, activationId, OnboardingStatus.VERIFICATION_IN_PROGRESS);
@@ -161,8 +164,9 @@ public class MockCustomActivationProvider implements CustomActivationProvider {
     @Override
     public List<String> getActivationFlags(Map<String, String> identityAttributes, Map<String, Object> customAttributes, String activationId, String userId, String appId, ActivationType activationType, Map<String, Object> context) {
         // Testing of onboarding process, the VERIFICATION_PENDING flag needs to be added
-        if (identityAttributes.containsKey("processId")) {
-            String processId = identityAttributes.get("processId");
+        final String credentialsType = identityAttributes.get(PA_CUSTOM_ACTIVATION_TYPE);
+        if (PA_CUSTOM_ACTIVATION_TYPE_ONBOARDING.equals(credentialsType)) {
+            final String processId = fetchProcessId(identityAttributes);
             try {
                 // Check user ID in onboarding process
                 if (!onboardingProcessService.getUserId(processId).equals(userId)) {
@@ -176,5 +180,9 @@ public class MockCustomActivationProvider implements CustomActivationProvider {
             }
         }
         return Collections.emptyList();
+    }
+
+    private static String fetchProcessId(Map<String, String> identityAttributes) {
+        return identityAttributes.get("processId");
     }
 }
