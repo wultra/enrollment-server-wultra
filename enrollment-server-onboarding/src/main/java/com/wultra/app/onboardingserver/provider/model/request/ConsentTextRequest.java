@@ -14,19 +14,22 @@
  *
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
  */
-package com.wultra.app.onboardingserver.provider;
+package com.wultra.app.onboardingserver.provider.model.request;
 
 import com.wultra.app.onboardingserver.common.annotation.PublicApi;
+import com.wultra.app.onboardingserver.provider.OnboardingProvider;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.ToString;
 
+import java.util.Locale;
 import java.util.UUID;
 
 /**
- * Request object for {@link OnboardingProvider#evaluateClient(EvaluateClientRequest)}.
+ * Request object for {@link OnboardingProvider#fetchConsent(ConsentTextRequest)}.
  *
  * @author Lubos Racansky, lubos.racansky@wultra.com
  */
@@ -34,7 +37,7 @@ import java.util.UUID;
 @Getter
 @ToString
 @PublicApi
-public final class EvaluateClientRequest {
+public final class ConsentTextRequest {
 
     @NonNull
     private UUID processId;
@@ -42,9 +45,13 @@ public final class EvaluateClientRequest {
     @NonNull
     private String userId;
 
+    /**
+     * Consent type, e.g. GDPR.
+     */
     @NonNull
-    private String identityVerificationId;
+    private String consentType;
 
     @NonNull
-    private String verificationId;
+    private Locale locale;
+
 }

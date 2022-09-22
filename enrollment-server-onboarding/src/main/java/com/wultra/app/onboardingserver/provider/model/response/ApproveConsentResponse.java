@@ -1,6 +1,6 @@
 /*
  * PowerAuth Enrollment Server
- * Copyright (C) 2021 Wultra s.r.o.
+ * Copyright (C) 2022 Wultra s.r.o.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -14,19 +14,20 @@
  *
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
  */
-package com.wultra.app.onboardingserver.presencecheck.iproov;
+package com.wultra.app.onboardingserver.provider.model.response;
+
+import com.wultra.app.onboardingserver.common.annotation.PublicApi;
+import com.wultra.app.onboardingserver.provider.OnboardingProvider;
+import com.wultra.app.onboardingserver.provider.model.request.ApproveConsentRequest;
 
 /**
- * Constants for iProov purposes
+ * Response object for {@link OnboardingProvider#approveConsent(ApproveConsentRequest)}.
  *
- * @author Lukas Lukovsky, lukas.lukovsky@wultra.com
+ * @author Lubos Racansky, lubos.racansky@wultra.com
  */
-public class IProovConst {
-
-    /**
-     * Session parameter name of the verification token
-     */
-    public static final String VERIFICATION_TOKEN = "iproov-verification-token";
-
+@PublicApi
+public final class ApproveConsentResponse {
+    // empty so far, open to change in the future
 }

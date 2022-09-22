@@ -14,10 +14,13 @@
  *
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
  */
-package com.wultra.app.onboardingserver.provider;
+package com.wultra.app.onboardingserver.provider.model.response;
 
 import com.wultra.app.onboardingserver.common.annotation.PublicApi;
+import com.wultra.app.onboardingserver.provider.OnboardingProvider;
+import com.wultra.app.onboardingserver.provider.model.request.EvaluateClientRequest;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.ToString;
@@ -33,5 +36,18 @@ import lombok.ToString;
 @PublicApi
 public final class EvaluateClientResponse {
 
-    private boolean successful;
+    /**
+     * Whether client evaluation was accepted.
+     */
+    private boolean accepted;
+
+    /**
+     * Whether business logic error occurred during client evaluation.
+     */
+    private boolean errorOccurred;
+
+    /**
+     * Error detail to store within onboarding process.
+     */
+    private String errorDetail;
 }
