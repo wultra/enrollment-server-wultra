@@ -26,8 +26,8 @@ import com.wultra.app.onboardingserver.common.database.IdentityVerificationRepos
 import com.wultra.app.onboardingserver.common.database.entity.DocumentVerificationEntity;
 import com.wultra.app.onboardingserver.common.database.entity.IdentityVerificationEntity;
 import com.wultra.app.onboardingserver.configuration.IdentityVerificationConfig;
-import com.wultra.app.onboardingserver.provider.EvaluateClientRequest;
-import com.wultra.app.onboardingserver.provider.EvaluateClientResponse;
+import com.wultra.app.onboardingserver.provider.model.request.EvaluateClientRequest;
+import com.wultra.app.onboardingserver.provider.model.response.EvaluateClientResponse;
 import com.wultra.app.onboardingserver.provider.OnboardingProvider;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -90,7 +90,7 @@ public class ClientEvaluationService {
         idVerification.setPhase(IdentityVerificationPhase.CLIENT_EVALUATION);
         idVerification.setStatus(IdentityVerificationStatus.IN_PROGRESS);
         idVerification.setTimestampLastUpdated(ownerId.getTimestamp());
-        logger.info("Switched to CLIENT_EVALUATION/IN_PROGRESS; {}, process ID: {}", ownerId, idVerification.getProcessId());
+        logger.info("Switched to CLIENT_EVALUATION/IN_PROGRESS; process ID: {}, {}", idVerification.getProcessId(), ownerId);
     }
 
     /**
@@ -127,15 +127,23 @@ public class ClientEvaluationService {
         return response -> {
             final Date now = new Date();
             identityVerification.setTimestampLastUpdated(now);
-            identityVerification.setTimestampFinished(now);
-            if (response.isSuccessful()) {
-                logger.info("Client evaluation successful for {}", identityVerification);
+            // The timestampFinished parameter is not set yet, there may be other steps ahead
+            if (response.isAccepted()) {
+                logger.info("Client evaluation accepted for {}", identityVerification);
                 identityVerification.setStatus(IdentityVerificationStatus.ACCEPTED);
+                logger.info("Switched to {}/ACCEPTED; process ID: {}", identityVerification.getPhase(), identityVerification.getProcessId());
             } else {
                 logger.info("Client evaluation rejected for {}", identityVerification);
                 identityVerification.setStatus(IdentityVerificationStatus.REJECTED);
                 identityVerification.getDocumentVerifications()
                         .forEach(it -> it.setStatus(DocumentStatus.REJECTED));
+                logger.info("Switched to {}/REJECTED; process ID: {}", identityVerification.getPhase(), identityVerification.getProcessId());
+                identityVerification.setTimestampFailed(now);
+            }
+            if (response.isErrorOccurred()) {
+                logger.warn("Business logic error occurred during client evaluation, identity verification ID: {}, error detail: {}", identityVerification.getId(), response.getErrorDetail());
+                identityVerification.setErrorOrigin(ErrorOrigin.CLIENT_EVALUATION);
+                identityVerification.setErrorDetail(response.getErrorDetail());
             }
             saveInTransaction(identityVerification);
         };
@@ -151,6 +159,7 @@ public class ClientEvaluationService {
             final Date now = new Date();
             identityVerification.setTimestampLastUpdated(now);
             identityVerification.setTimestampFailed(now);
+            logger.info("Switched to {}/FAILED; process ID: {}", identityVerification.getPhase(), identityVerification.getProcessId());
             saveInTransaction(identityVerification);
         };
     }

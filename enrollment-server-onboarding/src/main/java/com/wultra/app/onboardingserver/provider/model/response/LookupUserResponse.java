@@ -14,31 +14,44 @@
  *
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
  */
-package com.wultra.app.onboardingserver.provider;
+package com.wultra.app.onboardingserver.provider.model.response;
 
 import com.wultra.app.onboardingserver.common.annotation.PublicApi;
+import com.wultra.app.onboardingserver.provider.OnboardingProvider;
+import com.wultra.app.onboardingserver.provider.model.request.LookupUserRequest;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.ToString;
 
-import java.util.Map;
-
 /**
- * Request object for {@link OnboardingProvider#lookupUser(LookupUserRequest)}.
+ * Response object for {@link OnboardingProvider#lookupUser(LookupUserRequest)}.
  *
  * @author Lubos Racansky, lubos.racansky@wultra.com
  */
 @Builder
 @Getter
-@ToString
 @PublicApi
-public final class LookupUserRequest {
+@ToString
+public final class LookupUserResponse {
 
     @NonNull
-    private Map<String, Object> identification;
+    private String userId;
 
-    @NonNull
-    private String processId;
+    // not propagated yet; consistent with the client which always considers it as true
+    @Builder.Default
+    private boolean consentRequired = true;
+
+    /**
+     * Whether business logic error occurred during user lookup.
+     */
+    private boolean errorOccurred;
+
+    /**
+     * Error detail to store within onboarding process.
+     */
+    private String errorDetail;
+
 }

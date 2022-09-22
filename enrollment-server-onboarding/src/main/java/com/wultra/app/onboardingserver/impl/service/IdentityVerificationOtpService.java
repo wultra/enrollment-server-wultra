@@ -33,7 +33,7 @@ import com.wultra.app.onboardingserver.common.database.entity.IdentityVerificati
 import com.wultra.app.onboardingserver.errorhandling.OnboardingOtpDeliveryException;
 import com.wultra.app.onboardingserver.errorhandling.OnboardingProviderException;
 import com.wultra.app.onboardingserver.provider.OnboardingProvider;
-import com.wultra.app.onboardingserver.provider.SendOtpCodeRequest;
+import com.wultra.app.onboardingserver.provider.model.request.SendOtpCodeRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -122,6 +122,7 @@ public class IdentityVerificationOtpService {
     public void sendOtp(IdentityVerificationEntity identityVerification) throws OnboardingProcessException, OnboardingOtpDeliveryException {
         identityVerification.setPhase(IdentityVerificationPhase.OTP_VERIFICATION);
         identityVerification.setStatus(IdentityVerificationStatus.OTP_VERIFICATION_PENDING);
+        logger.info("Switched to OTP_VERIFICATION/OTP_VERIFICATION_PENDING; process ID: {}", identityVerification.getProcessId());
         sendOtpCode(identityVerification.getProcessId(), false);
     }
 
@@ -211,7 +212,7 @@ public class IdentityVerificationOtpService {
         idVerification.setRejectOrigin(null);
         identityVerificationRepository.save(idVerification);
 
-        logger.info("Switched to PRESENCE_CHECK/NOT_INITIALIZED, process ID: {}", idVerification.getProcessId());
+        logger.info("Switched to PRESENCE_CHECK/NOT_INITIALIZED; process ID: {}", idVerification.getProcessId());
 
         markVerificationOtpAsFailed(process.getId());
 
