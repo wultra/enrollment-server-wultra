@@ -18,7 +18,11 @@
 package com.wultra.app.onboardingserver.mock;
 
 import com.wultra.app.onboardingserver.errorhandling.OnboardingProviderException;
-import com.wultra.app.onboardingserver.provider.*;
+import com.wultra.app.onboardingserver.provider.OnboardingProvider;
+import com.wultra.app.onboardingserver.provider.model.request.*;
+import com.wultra.app.onboardingserver.provider.model.response.ApproveConsentResponse;
+import com.wultra.app.onboardingserver.provider.model.response.EvaluateClientResponse;
+import com.wultra.app.onboardingserver.provider.model.response.LookupUserResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -81,7 +85,7 @@ public class MockOnboardingProvider implements OnboardingProvider {
         final UUID processId = request.getProcessId();
         final String userId = request.getUserId();
         final String consentType = request.getConsentType();
-        final Boolean approved = request.getApproved();
+        final boolean approved = request.isApproved();
 
         logger.info("Approved consent for process ID: {}, user ID: {}, consentType: {}, approved: {}", processId, userId, consentType, approved);
         return new ApproveConsentResponse();
@@ -96,6 +100,6 @@ public class MockOnboardingProvider implements OnboardingProvider {
 
         logger.info("Evaluating client for process ID: {}, user ID: {}, verification ID: {}, identityVerification ID: {}",
                 processId, userId, verificationId, identityVerificationId);
-        return Mono.just(EvaluateClientResponse.builder().successful(true).build());
+        return Mono.just(EvaluateClientResponse.builder().accepted(true).build());
     }
 }
