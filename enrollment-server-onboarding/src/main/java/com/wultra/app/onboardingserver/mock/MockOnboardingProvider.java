@@ -31,7 +31,6 @@ import reactor.core.publisher.Mono;
 
 import java.util.Locale;
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * Mock onboarding provider for testing purposes.
@@ -72,7 +71,7 @@ public class MockOnboardingProvider implements OnboardingProvider {
 
     @Override
     public String fetchConsent(final ConsentTextRequest request) {
-        final UUID processId = request.getProcessId();
+        final String processId = request.getProcessId();
         final String userId = request.getUserId();
         final String consentType = request.getConsentType();
         final Locale locale = request.getLocale();
@@ -82,7 +81,7 @@ public class MockOnboardingProvider implements OnboardingProvider {
 
     @Override
     public ApproveConsentResponse approveConsent(final ApproveConsentRequest request) {
-        final UUID processId = request.getProcessId();
+        final String processId = request.getProcessId();
         final String userId = request.getUserId();
         final String consentType = request.getConsentType();
         final boolean approved = request.isApproved();
@@ -93,7 +92,7 @@ public class MockOnboardingProvider implements OnboardingProvider {
 
     @Override
     public Mono<EvaluateClientResponse> evaluateClient(EvaluateClientRequest request) {
-        final UUID processId = request.getProcessId();
+        final String processId = request.getProcessId();
         final String userId = request.getUserId();
         final String verificationId = request.getVerificationId();
         final String identityVerificationId = request.getIdentityVerificationId();

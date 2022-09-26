@@ -1,6 +1,6 @@
 /*
  * PowerAuth Enrollment Server
- * Copyright (C) 2021 Wultra s.r.o.
+ * Copyright (C) 2022 Wultra s.r.o.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -15,22 +15,18 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.wultra.app.enrollmentserver.errorhandling;
+package com.wultra.app.enrollmentserver.api.model.onboarding.request;
+
+import lombok.Data;
 
 /**
- * Exception thrown in case of an error during communication with remote system.
+ * Request class used when submitting presence check.
  *
- * @author Roman Strobl, roman.strobl@wultra.com
+ * @author Lubos Racansky, lubos.racansky@wultra.com
  */
-public class RemoteCommunicationException extends Exception {
+@Data
+public class PresenceCheckSubmitRequest {
 
-    private static final long serialVersionUID = -6809966084351557214L;
-
-    public RemoteCommunicationException() {
-    }
-
-    public RemoteCommunicationException(String message) {
-        super(message);
-    }
+    private String processId;
 
 }

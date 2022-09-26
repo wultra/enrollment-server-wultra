@@ -46,8 +46,7 @@ public interface IdentityVerificationRepository extends CrudRepository<IdentityV
             "WHERE i.activationId = :activationId " +
             "AND i.status IN (" +
                 "com.wultra.app.enrollmentserver.model.enumeration.IdentityVerificationStatus.IN_PROGRESS, " +
-                "com.wultra.app.enrollmentserver.model.enumeration.IdentityVerificationStatus.VERIFICATION_PENDING, " +
-                "com.wultra.app.enrollmentserver.model.enumeration.IdentityVerificationStatus.OTP_VERIFICATION_PENDING" +
+                "com.wultra.app.enrollmentserver.model.enumeration.IdentityVerificationStatus.VERIFICATION_PENDING" +
             ")")
     int failRunningVerifications(String activationId, Date timestamp);
 
@@ -79,7 +78,7 @@ public interface IdentityVerificationRepository extends CrudRepository<IdentityV
             " OR (id.phase = com.wultra.app.enrollmentserver.model.enumeration.IdentityVerificationPhase.CLIENT_EVALUATION" +
             "   AND id.status = com.wultra.app.enrollmentserver.model.enumeration.IdentityVerificationStatus.ACCEPTED)" +
             " OR (id.phase = com.wultra.app.enrollmentserver.model.enumeration.IdentityVerificationPhase.PRESENCE_CHECK" +
-            "   AND id.status = com.wultra.app.enrollmentserver.model.enumeration.IdentityVerificationStatus.IN_PROGRESS)"
+            "   AND id.status = com.wultra.app.enrollmentserver.model.enumeration.IdentityVerificationStatus.VERIFICATION_PENDING)"
     )
     Stream<IdentityVerificationEntity> streamAllIdentityVerificationsToChangeState();
 

@@ -22,7 +22,6 @@ import com.wultra.app.enrollmentserver.model.integration.Image;
 import com.wultra.app.enrollmentserver.model.integration.OwnerId;
 import com.wultra.app.enrollmentserver.model.integration.PresenceCheckResult;
 import com.wultra.app.enrollmentserver.model.integration.SessionInfo;
-import com.wultra.app.onboardingserver.errorhandling.PresenceCheckException;
 import com.wultra.app.onboardingserver.presencecheck.mock.MockConst;
 import com.wultra.app.onboardingserver.provider.PresenceCheckProvider;
 import org.slf4j.Logger;
@@ -53,12 +52,12 @@ public class WultraMockPresenceCheckProvider implements PresenceCheckProvider {
     }
 
     @Override
-    public void initPresenceCheck(OwnerId id, Image photo) throws PresenceCheckException {
+    public void initPresenceCheck(OwnerId id, Image photo) {
         logger.info("Mock - initialized presence check with a photo, {}", id);
     }
 
     @Override
-    public SessionInfo startPresenceCheck(OwnerId id) throws PresenceCheckException {
+    public SessionInfo startPresenceCheck(OwnerId id) {
         String token = UUID.randomUUID().toString();
 
         SessionInfo sessionInfo = new SessionInfo();
@@ -109,7 +108,7 @@ public class WultraMockPresenceCheckProvider implements PresenceCheckProvider {
     }
 
     @Override
-    public void cleanupIdentityData(OwnerId id) throws PresenceCheckException {
+    public void cleanupIdentityData(OwnerId id) {
         logger.info("Mock - cleaned up identity data, {}", id);
     }
 
