@@ -197,12 +197,8 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
     @Transactional
     public OnboardingStatusResponse getStatus(OnboardingStatusRequest request) throws OnboardingProcessException {
         String processId = request.getProcessId();
-        Optional<OnboardingProcessEntity> processOptional = onboardingProcessRepository.findById(processId);
-        if (processOptional.isEmpty()) {
-            logger.warn("Onboarding process not found, process ID: {}", processId);
-            throw new OnboardingProcessException();
-        }
-        OnboardingProcessEntity process = processOptional.get();
+        final OnboardingProcessEntity process = onboardingProcessRepository.findById(processId).orElseThrow(() ->
+                new OnboardingProcessException("Onboarding process not found, process ID: " + processId));
         OnboardingStatusResponse response = new OnboardingStatusResponse();
         response.setProcessId(processId);
 
@@ -225,22 +221,21 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
     @Transactional
     public Response performCleanup(OnboardingCleanupRequest request) throws OnboardingProcessException {
         String processId = request.getProcessId();
-        Optional<OnboardingProcessEntity> processOptional = onboardingProcessRepository.findById(processId);
-        if (processOptional.isEmpty()) {
-            logger.warn("Onboarding process not found, process ID: {}", processId);
-            throw new OnboardingProcessException();
-        }
-        otpService.cancelOtp(processOptional.get(), OtpType.ACTIVATION);
-        otpService.cancelOtp(processOptional.get(), OtpType.USER_VERIFICATION);
-        OnboardingProcessEntity process = processOptional.get();
+        final OnboardingProcessEntity process = onboardingProcessRepository.findById(processId).orElseThrow(() ->
+                new OnboardingProcessException("Onboarding process not found, process ID: " + processId));
+
+        otpService.cancelOtp(process, OtpType.ACTIVATION);
+        otpService.cancelOtp(process, OtpType.USER_VERIFICATION);
+
+        removeActivation(process);
+
         process.setStatus(OnboardingStatus.FAILED);
         process.setErrorDetail(OnboardingProcessEntity.ERROR_PROCESS_CANCELED);
         process.setErrorOrigin(ErrorOrigin.USER_REQUEST);
         process.setTimestampLastUpdated(new Date());
         process.setTimestampFailed(new Date());
+        process.setActivationRemoved(true);
         onboardingProcessRepository.save(process);
-
-        removeActivation(process);
 
         return new Response();
     }
