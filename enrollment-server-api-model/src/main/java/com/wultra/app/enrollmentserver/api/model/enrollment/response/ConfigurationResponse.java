@@ -14,33 +14,34 @@
  *
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
- *
  */
+package com.wultra.app.enrollmentserver.api.model.enrollment.response;
 
-package com.wultra.app.onboardingserver.impl.util;
-
-import java.time.Duration;
-import java.util.Date;
+import lombok.Data;
 
 /**
- * Utility class for date conversions.
+ * Response with configuration.
  *
- * @author Roman Strobl, roman.strobl@wultra.com
+ * @author Lubos Racansky, lubos.racansky@wultra.com
  */
-public final class DateUtil {
+@Data
+public class ConfigurationResponse {
 
-    private DateUtil() {
-        throw new IllegalStateException("Utility class");
+    private MobileApplication mobileApplication;
+
+    @Data
+    public static class MobileApplication {
+
+        private VersionSpecification iOs;
+
+        private VersionSpecification android;
     }
 
-    /**
-     * Convert expiration time interval to minimal created date used for expiration.
-     * @param expiration Expiration time interval.
-     * @return Created date used for expiration.
-     */
-    public static Date convertExpirationToCreatedDate(Duration expiration) {
-        long currentTime = System.currentTimeMillis();
-        long expiredTime = currentTime - expiration.toMillis();
-        return new Date(expiredTime);
+    @Data
+    public static class VersionSpecification {
+
+        private String minimalVersion;
+
+        private String currentVersion;
     }
 }
