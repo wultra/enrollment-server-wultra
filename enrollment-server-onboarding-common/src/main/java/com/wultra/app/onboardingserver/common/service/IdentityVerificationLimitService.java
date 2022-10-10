@@ -19,10 +19,7 @@
 
 package com.wultra.app.onboardingserver.common.service;
 
-import com.wultra.app.enrollmentserver.model.enumeration.DocumentStatus;
-import com.wultra.app.enrollmentserver.model.enumeration.ErrorOrigin;
-import com.wultra.app.enrollmentserver.model.enumeration.IdentityVerificationStatus;
-import com.wultra.app.enrollmentserver.model.enumeration.OnboardingStatus;
+import com.wultra.app.enrollmentserver.model.enumeration.*;
 import com.wultra.app.enrollmentserver.model.integration.OwnerId;
 import com.wultra.app.onboardingserver.common.configuration.CommonOnboardingConfig;
 import com.wultra.app.onboardingserver.common.database.DocumentVerificationRepository;
@@ -57,6 +54,8 @@ public class IdentityVerificationLimitService {
     private final ActivationFlagService activationFlagService;
     private final OnboardingProcessLimitService processLimitService;
 
+    private final AuditService auditService;
+
     /**
      * Service constructor.
      * @param identityVerificationRepository Identity verification repository.
@@ -65,15 +64,24 @@ public class IdentityVerificationLimitService {
      * @param onboardingProcessRepository Onboarding process repository.
      * @param activationFlagService Activation flag service.
      * @param processLimitService Onboarding process limit service.
+     * @param auditService audit service.
      */
     @Autowired
-    public IdentityVerificationLimitService(IdentityVerificationRepository identityVerificationRepository, DocumentVerificationRepository documentVerificationRepository, CommonOnboardingConfig config, OnboardingProcessRepository onboardingProcessRepository, ActivationFlagService activationFlagService, OnboardingProcessLimitService processLimitService) {
+    public IdentityVerificationLimitService(
+            final IdentityVerificationRepository identityVerificationRepository,
+            final DocumentVerificationRepository documentVerificationRepository,
+            final CommonOnboardingConfig config,
+            final OnboardingProcessRepository onboardingProcessRepository,
+            final ActivationFlagService activationFlagService,
+            final OnboardingProcessLimitService processLimitService,
+            final AuditService auditService) {
         this.identityVerificationRepository = identityVerificationRepository;
         this.documentVerificationRepository = documentVerificationRepository;
         this.config = config;
         this.onboardingProcessRepository = onboardingProcessRepository;
         this.activationFlagService = activationFlagService;
         this.processLimitService = processLimitService;
+        this.auditService = auditService;
     }
 
     /**
@@ -97,6 +105,7 @@ public class IdentityVerificationLimitService {
                     .forEach(verification -> {
                         verification.setStatus(IdentityVerificationStatus.FAILED);
                         logger.info("Switched to {}/FAILED; {}", verification.getPhase(), ownerId);
+                        auditService.audit(verification, "Switched to {}/FAILED; user ID: {}", verification.getPhase(), ownerId.getUserId());
                     });
             identityVerificationRepository.saveAll(identityVerifications);
 
@@ -106,6 +115,7 @@ public class IdentityVerificationLimitService {
             process.setTimestampFailed(ownerId.getTimestamp());
             process.setStatus(OnboardingStatus.FAILED);
             onboardingProcessRepository.save(process);
+            auditService.audit(process, "Max failed attempts reached for identity verification for user: {}", process.getUserId());
 
             // Remove flag VERIFICATION_IN_PROGRESS and add VERIFICATION_PENDING flag
             activationFlagService.updateActivationFlagsForFailedIdentityVerification(ownerId);
@@ -126,13 +136,16 @@ public class IdentityVerificationLimitService {
     public void checkDocumentUploadLimit(OwnerId ownerId, IdentityVerificationEntity identityVerification) throws IdentityVerificationLimitException, RemoteCommunicationException, IdentityVerificationException, OnboardingProcessLimitException, OnboardingProcessException {
         final List<DocumentVerificationEntity> documentVerificationsFailed = documentVerificationRepository.findAllDocumentVerifications(identityVerification, DocumentStatus.ALL_FAILED);
         if (documentVerificationsFailed.size() > config.getDocumentUploadMaxFailedAttempts()) {
+            final IdentityVerificationPhase phase = identityVerification.getPhase();
+
             identityVerification.setStatus(IdentityVerificationStatus.FAILED);
             identityVerification.setErrorDetail(IdentityVerificationEntity.ERROR_MAX_FAILED_ATTEMPTS_DOCUMENT_UPLOAD);
             identityVerification.setErrorOrigin(ErrorOrigin.PROCESS_LIMIT_CHECK);
             identityVerification.setTimestampLastUpdated(ownerId.getTimestamp());
             identityVerification.setTimestampFailed(ownerId.getTimestamp());
             identityVerificationRepository.save(identityVerification);
-            logger.info("Switched to {}/FAILED; {}", identityVerification.getPhase(), ownerId);
+            logger.info("Switched to {}/FAILED; {}", phase, ownerId);
+            auditService.audit(identityVerification, "Switched to {}/FAILED; user ID: {}", phase, ownerId.getUserId());
             resetIdentityVerification(ownerId);
             logger.warn("Max failed attempts reached for document upload, {}.", ownerId);
             throw new IdentityVerificationLimitException("Max failed attempts reached for document upload");

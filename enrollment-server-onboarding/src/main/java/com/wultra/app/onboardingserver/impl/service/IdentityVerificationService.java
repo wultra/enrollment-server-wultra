@@ -35,6 +35,7 @@ import com.wultra.app.onboardingserver.common.database.entity.IdentityVerificati
 import com.wultra.app.onboardingserver.common.database.entity.OnboardingProcessEntity;
 import com.wultra.app.onboardingserver.common.enumeration.OnboardingProcessError;
 import com.wultra.app.onboardingserver.common.errorhandling.*;
+import com.wultra.app.onboardingserver.common.service.AuditService;
 import com.wultra.app.onboardingserver.common.service.CommonOnboardingService;
 import com.wultra.app.onboardingserver.common.service.IdentityVerificationLimitService;
 import com.wultra.app.onboardingserver.common.service.OnboardingProcessLimitService;
@@ -59,6 +60,9 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static com.wultra.app.enrollmentserver.model.enumeration.IdentityVerificationPhase.DOCUMENT_UPLOAD;
+import static com.wultra.app.enrollmentserver.model.enumeration.IdentityVerificationStatus.*;
+
 /**
  * Service implementing document identity verification.
  *
@@ -75,7 +79,6 @@ public class IdentityVerificationService {
     private final DocumentVerificationRepository documentVerificationRepository;
     private final IdentityVerificationRepository identityVerificationRepository;
     private final DocumentProcessingService documentProcessingService;
-    private final IdentityVerificationCreateService identityVerificationCreateService;
     private final VerificationProcessingService verificationProcessingService;
     private final DocumentVerificationProvider documentVerificationProvider;
     private final IdentityVerificationLimitService identityVerificationLimitService;
@@ -83,6 +86,8 @@ public class IdentityVerificationService {
     private final OnboardingProcessLimitService processLimitService;
 
     private final RequiredDocumentTypesGuard requiredDocumentTypesGuard;
+
+    private final AuditService auditService;
 
     private static final List<DocumentStatus> DOCUMENT_STATUSES_PROCESSED = Arrays.asList(DocumentStatus.ACCEPTED, DocumentStatus.FAILED, DocumentStatus.REJECTED);
 
@@ -93,12 +98,12 @@ public class IdentityVerificationService {
      * @param documentVerificationRepository Document verification repository.
      * @param identityVerificationRepository Identity verification repository.
      * @param documentProcessingService Document processing service.
-     * @param identityVerificationCreateService Identity verification create service.
      * @param verificationProcessingService Verification processing service.
      * @param documentVerificationProvider Document verification provider.
      * @param identityVerificationLimitService Identity verification limit service.
      * @param processService Common onboarding process service.
      * @param processLimitService Onboarding process limit service.
+     * @param auditService Audit service.
      */
     @Autowired
     public IdentityVerificationService(
@@ -107,25 +112,26 @@ public class IdentityVerificationService {
             final DocumentVerificationRepository documentVerificationRepository,
             final IdentityVerificationRepository identityVerificationRepository,
             final DocumentProcessingService documentProcessingService,
-            final IdentityVerificationCreateService identityVerificationCreateService,
             final VerificationProcessingService verificationProcessingService,
             final DocumentVerificationProvider documentVerificationProvider,
             final IdentityVerificationLimitService identityVerificationLimitService,
             final CommonOnboardingService processService,
             final OnboardingProcessLimitService processLimitService,
-            final RequiredDocumentTypesGuard requiredDocumentTypesGuard) {
+            final RequiredDocumentTypesGuard requiredDocumentTypesGuard,
+            final AuditService auditService) {
+
         this.identityVerificationConfig = identityVerificationConfig;
         this.documentDataRepository = documentDataRepository;
         this.documentVerificationRepository = documentVerificationRepository;
         this.identityVerificationRepository = identityVerificationRepository;
         this.documentProcessingService = documentProcessingService;
-        this.identityVerificationCreateService = identityVerificationCreateService;
         this.verificationProcessingService = verificationProcessingService;
         this.documentVerificationProvider = documentVerificationProvider;
         this.identityVerificationLimitService = identityVerificationLimitService;
         this.processService = processService;
         this.processLimitService = processLimitService;
         this.requiredDocumentTypesGuard = requiredDocumentTypesGuard;
+        this.auditService = auditService;
     }
 
     /**
@@ -154,19 +160,6 @@ public class IdentityVerificationService {
     }
 
     /**
-     * Initialize identity verification.
-     * @param ownerId Owner identification.
-     * @param processId Process identifier.
-     * @return Identity verification entity.
-     * @throws IdentityVerificationException Thrown when identity verification initialization fails.
-     * @throws RemoteCommunicationException Thrown when communication with PowerAuth server fails.
-     * @throws OnboardingProcessLimitException Thrown when maximum failed attempts for identity verification have been reached.
-     */
-    public IdentityVerificationEntity initializeIdentityVerification(OwnerId ownerId, String processId) throws IdentityVerificationException, RemoteCommunicationException, OnboardingProcessLimitException {
-        return identityVerificationCreateService.createIdentityVerification(ownerId, processId);
-    }
-
-    /**
      * Update an identity verification entity in database.
      * @param identityVerification Identity verification identity.
      * @return Updated identity verification entity.
@@ -182,9 +175,10 @@ public class IdentityVerificationService {
      * @param phase Target phase.
      * @param status Target status.
      * @param ownerId Owner identification.
+     * @return saved identity verification
      */
     @Transactional
-    public void moveToPhaseAndStatus(final IdentityVerificationEntity identityVerification,
+    public IdentityVerificationEntity moveToPhaseAndStatus(final IdentityVerificationEntity identityVerification,
                                      final IdentityVerificationPhase phase,
                                      final IdentityVerificationStatus status,
                                      final OwnerId ownerId) {
@@ -192,8 +186,10 @@ public class IdentityVerificationService {
         identityVerification.setPhase(phase);
         identityVerification.setStatus(status);
         identityVerification.setTimestampLastUpdated(ownerId.getTimestamp());
-        identityVerificationRepository.save(identityVerification);
+        final IdentityVerificationEntity savedIdentityVerification = identityVerificationRepository.save(identityVerification);
         logger.info("Switched to {}/{}; {}", phase, status, ownerId);
+        auditService.audit(identityVerification, "Switched to {}/{}; user ID: {}", phase, status, ownerId.getUserId());
+        return  savedIdentityVerification;
     }
 
     /**
@@ -225,7 +221,7 @@ public class IdentityVerificationService {
         final IdentityVerificationStatus status = idVerification.getStatus();
         if (phase == IdentityVerificationPhase.DOCUMENT_VERIFICATION && status == IdentityVerificationStatus.IN_PROGRESS) {
             moveToDocumentUpload(ownerId, idVerification, IdentityVerificationStatus.VERIFICATION_PENDING);
-        } else if (phase != IdentityVerificationPhase.DOCUMENT_UPLOAD) {
+        } else if (phase != DOCUMENT_UPLOAD) {
             logger.error("The verification phase is {} but expected DOCUMENT_UPLOAD, {}", phase, ownerId);
             throw new DocumentSubmitException("Not allowed submit of documents during not upload phase");
         } else if (IdentityVerificationStatus.VERIFICATION_PENDING.equals(status)) {
@@ -275,6 +271,7 @@ public class IdentityVerificationService {
                 .collect(Collectors.toList());
 
         DocumentsVerificationResult result = documentVerificationProvider.verifyDocuments(ownerId, uploadIds);
+        auditService.auditDocumentVerificationProvider(identityVerification, "Documents verified: {} for user: {}", result.getStatus(), ownerId.getUserId());
 
         moveToPhaseAndStatus(identityVerification, IdentityVerificationPhase.DOCUMENT_VERIFICATION, IdentityVerificationStatus.IN_PROGRESS, ownerId);
 
@@ -282,14 +279,16 @@ public class IdentityVerificationService {
             docVerification.setStatus(DocumentStatus.VERIFICATION_IN_PROGRESS);
             docVerification.setVerificationId(result.getVerificationId());
             docVerification.setTimestampLastUpdated(ownerId.getTimestamp());
+            auditService.auditDebug(docVerification, "Started document verification for user: {}", ownerId.getUserId());
         });
         documentVerificationRepository.saveAll(docVerifications);
 
-        // If selfie photos are not included in the verification process with documents change their status to ACCEPTED
         if (!identityVerificationConfig.isVerifySelfieWithDocumentsEnabled()) {
+            logger.debug("Selfie photos verification disabled, changing selfie document status to ACCEPTED, {}", ownerId);
             selfiePhotoVerifications.forEach(selfiePhotoVerification -> {
                 selfiePhotoVerification.setStatus(DocumentStatus.ACCEPTED);
                 selfiePhotoVerification.setTimestampLastUpdated(ownerId.getTimestamp());
+                auditService.audit(selfiePhotoVerification, "Selfie document accepted for user: {}", ownerId.getUserId());
             });
             documentVerificationRepository.saveAll(selfiePhotoVerifications);
         }
@@ -318,6 +317,7 @@ public class IdentityVerificationService {
 
         for (Map.Entry<String, List<DocumentVerificationEntity>> entry : verificationsById.entrySet()) {
             DocumentsVerificationResult docVerificationResult = documentVerificationProvider.getVerificationResult(ownerId, entry.getKey());
+            auditService.auditDocumentVerificationProvider(idVerification, "Got verification result: {} for user: {}", docVerificationResult.getStatus(), ownerId.getUserId());
             verificationProcessingService.processVerificationResult(ownerId, entry.getValue(), docVerificationResult);
         }
 
@@ -336,12 +336,12 @@ public class IdentityVerificationService {
         identityVerificationRepository.save(idVerification);
 
         // Update process error score in case of a failed verification and check process error limits
-        if (idVerification.getStatus() == IdentityVerificationStatus.FAILED || idVerification.getStatus() == IdentityVerificationStatus.REJECTED) {
+        if (idVerification.getStatus() == FAILED || idVerification.getStatus() == REJECTED) {
             OnboardingProcessEntity process = processService.findProcess(idVerification.getProcessId());
-            if (idVerification.getStatus() == IdentityVerificationStatus.FAILED) {
+            if (idVerification.getStatus() == FAILED) {
                 processLimitService.incrementErrorScore(process, OnboardingProcessError.ERROR_DOCUMENT_VERIFICATION_FAILED);
             }
-            if (idVerification.getStatus() == IdentityVerificationStatus.REJECTED) {
+            if (idVerification.getStatus() == REJECTED) {
                 processLimitService.incrementErrorScore(process, OnboardingProcessError.ERROR_DOCUMENT_VERIFICATION_REJECTED);
             }
             processLimitService.checkOnboardingProcessErrorLimits(process);
@@ -376,40 +376,31 @@ public class IdentityVerificationService {
             final IdentityVerificationEntity idVerification,
             final List<DocumentVerificationEntity> docVerifications,
             final OwnerId ownerId) {
-        final Date now = new Date();
+        final Date now = ownerId.getTimestamp();
         if (docVerifications.stream()
                 .allMatch(docVerification -> DocumentStatus.ACCEPTED.equals(docVerification.getStatus()))) {
-            idVerification.setPhase(phase);
-            idVerification.setStatus(IdentityVerificationStatus.ACCEPTED);
-            idVerification.setTimestampLastUpdated(now);
             // The timestampFinished parameter is not set yet, there may be other steps ahead
             idVerification.setTimestampFinished(now);
-            logger.info("Switched to {}/ACCEPTED; {}", phase, ownerId);
+            moveToPhaseAndStatus(idVerification, phase, ACCEPTED, ownerId);
         } else {
             docVerifications.stream()
                     .filter(docVerification -> DocumentStatus.FAILED.equals(docVerification.getStatus()))
                     .findAny()
                     .ifPresent(failed -> {
-                        idVerification.setPhase(phase);
-                        idVerification.setStatus(IdentityVerificationStatus.FAILED);
                         idVerification.setErrorDetail(failed.getErrorDetail());
-                        idVerification.setTimestampLastUpdated(now);
                         idVerification.setTimestampFailed(now);
                         idVerification.setErrorOrigin(ErrorOrigin.DOCUMENT_VERIFICATION);
-                        logger.info("Switched to {}/FAILED; {}", phase, ownerId);
+                        moveToPhaseAndStatus(idVerification, phase, FAILED, ownerId);
                     });
 
             docVerifications.stream()
                     .filter(docVerification -> DocumentStatus.REJECTED.equals(docVerification.getStatus()))
                     .findAny()
                     .ifPresent(failed -> {
-                        idVerification.setPhase(phase);
-                        idVerification.setStatus(IdentityVerificationStatus.REJECTED);
                         idVerification.setErrorDetail(failed.getRejectReason());
                         idVerification.setErrorOrigin(ErrorOrigin.DOCUMENT_VERIFICATION);
-                        idVerification.setTimestampLastUpdated(now);
                         idVerification.setTimestampFinished(now);
-                        logger.info("Switched to {}/REJECTED; {}", phase, ownerId);
+                        moveToPhaseAndStatus(idVerification, phase, REJECTED, ownerId);
                     });
         }
     }
@@ -430,7 +421,7 @@ public class IdentityVerificationService {
 
         if (idVerificationOptional.isEmpty()) {
             logger.error("Checking identity verification status on a not existing entity, {}", ownerId);
-            response.setStatus(IdentityVerificationStatus.FAILED);
+            response.setStatus(FAILED);
             return response;
         }
 
@@ -453,7 +444,7 @@ public class IdentityVerificationService {
             for (DocumentVerificationEntity entity : entities) {
                 if (!entity.getActivationId().equals(idVerification.getActivationId())) {
                     logger.error("Not related {} to {}, {}", entity, idVerification, ownerId);
-                    response.setStatus(IdentityVerificationStatus.FAILED);
+                    response.setStatus(FAILED);
                     return response;
                 }
             }
@@ -483,6 +474,8 @@ public class IdentityVerificationService {
 
         if (identityVerificationConfig.isDocumentVerificationCleanupEnabled()) {
             documentVerificationProvider.cleanupDocuments(ownerId, uploadIds);
+            final IdentityVerificationEntity identityVerification = findBy(ownerId);
+            auditService.auditDocumentVerificationProvider(identityVerification, "Cleaned up documents for user: {}", ownerId.getUserId());
         } else {
             logger.debug("Skipped cleanup of documents at document verification provider (not enabled), {}", ownerId);
         }
@@ -500,11 +493,16 @@ public class IdentityVerificationService {
     /**
      * Provides photo data
      * @param photoId Identification of the photo
+     * @param ownerId Owner identification.
      * @return Photo image
      * @throws DocumentVerificationException When an error occurred during
      */
-    public Image getPhotoById(String photoId) throws DocumentVerificationException {
-        return documentVerificationProvider.getPhoto(photoId);
+    public Image getPhotoById(final String photoId, final OwnerId ownerId) throws DocumentVerificationException {
+        final Image result = documentVerificationProvider.getPhoto(photoId);
+        final IdentityVerificationEntity identityVerification = findByOptional(ownerId).orElseThrow(() ->
+                new DocumentVerificationException("Unable to find intentity verification for " + ownerId));
+        auditService.auditDocumentVerificationProvider(identityVerification, "Check document upload for user: {}", ownerId.getUserId());
+        return result;
     }
 
     public List<DocumentMetadataResponseDto> createDocsMetadata(List<DocumentVerificationEntity> entities) {
@@ -535,6 +533,9 @@ public class IdentityVerificationService {
     public VerificationSdkInfo initVerificationSdk(OwnerId ownerId, Map<String, String> initAttributes)
             throws DocumentVerificationException {
         VerificationSdkInfo verificationSdkInfo = documentVerificationProvider.initVerificationSdk(ownerId, initAttributes);
+        final IdentityVerificationEntity identityVerification = findByOptional(ownerId).orElseThrow(() ->
+                new DocumentVerificationException("Unble to find identity verification for " + ownerId));
+        auditService.auditDocumentVerificationProvider(identityVerification, "Sdk initialized for user: {}", ownerId.getUserId());
         logger.info("Initialized verification SDK, {}", ownerId);
         return verificationSdkInfo;
     }
@@ -550,11 +551,7 @@ public class IdentityVerificationService {
 
     private void moveToDocumentUpload(final OwnerId ownerId, final IdentityVerificationEntity idVerification, final IdentityVerificationStatus status) {
         logger.debug("New documents submitted, moving to DOCUMENT_UPLOAD; {}", ownerId);
-        idVerification.setPhase(IdentityVerificationPhase.DOCUMENT_UPLOAD);
-        idVerification.setStatus(status);
-        idVerification.setTimestampLastUpdated(ownerId.getTimestamp());
-        identityVerificationRepository.save(idVerification);
-        logger.info("Switched DOCUMENT_UPLOAD/{}; {}", status, ownerId);
+        moveToPhaseAndStatus(idVerification, DOCUMENT_UPLOAD, status, ownerId);
     }
 
     private List<String> collectRejectionErrors(DocumentVerificationEntity entity) {
@@ -567,6 +564,8 @@ public class IdentityVerificationService {
             List<String> rejectionReasons;
             try {
                 rejectionReasons = documentVerificationProvider.parseRejectionReasons(docResult);
+                final IdentityVerificationEntity identityVerification = docResult.getDocumentVerification().getIdentityVerification();
+                auditService.auditDocumentVerificationProvider(identityVerification, "Check document upload for user: {}", identityVerification.getUserId());
             } catch (DocumentVerificationException e) {
                 logger.debug("Parsing rejection reasons failure", e);
                 logger.warn("Unable to parse rejection reasons from {} of a rejected {}", docResult, entity);

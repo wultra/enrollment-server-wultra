@@ -21,14 +21,11 @@ import com.google.common.collect.Lists;
 import com.wultra.app.enrollmentserver.model.enumeration.DocumentStatus;
 import com.wultra.app.enrollmentserver.model.enumeration.ErrorOrigin;
 import com.wultra.app.enrollmentserver.model.enumeration.OnboardingStatus;
-import com.wultra.app.onboardingserver.common.database.DocumentDataRepository;
-import com.wultra.app.onboardingserver.common.database.DocumentVerificationRepository;
-import com.wultra.app.onboardingserver.common.database.IdentityVerificationRepository;
-import com.wultra.app.onboardingserver.common.database.OnboardingProcessRepository;
+import com.wultra.app.onboardingserver.common.database.*;
 import com.wultra.app.onboardingserver.common.database.entity.OnboardingProcessEntity;
+import com.wultra.app.onboardingserver.common.service.AuditService;
 import com.wultra.app.onboardingserver.configuration.IdentityVerificationConfig;
 import com.wultra.app.onboardingserver.configuration.OnboardingConfig;
-import com.wultra.app.onboardingserver.impl.service.OtpServiceImpl;
 import com.wultra.app.onboardingserver.impl.util.DateUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -67,7 +64,9 @@ class CleaningService {
 
     private final DocumentDataRepository documentDataRepository;
 
-    private final OtpServiceImpl otpService;
+    private final OnboardingOtpRepository onboardingOtpRepository;
+
+    private final AuditService auditService;
 
     @Autowired
     public CleaningService(
@@ -77,7 +76,8 @@ class CleaningService {
             final IdentityVerificationRepository identityVerificationRepository,
             final DocumentVerificationRepository documentVerificationRepository,
             final DocumentDataRepository documentDataRepository,
-            final OtpServiceImpl otpService) {
+            final OnboardingOtpRepository onboardingOtpRepository,
+            final AuditService auditService) {
 
         this.onboardingConfig = onboardingConfig;
         this.identityVerificationConfig = identityVerificationConfig;
@@ -85,7 +85,8 @@ class CleaningService {
         this.identityVerificationRepository = identityVerificationRepository;
         this.documentVerificationRepository = documentVerificationRepository;
         this.documentDataRepository = documentDataRepository;
-        this.otpService = otpService;
+        this.onboardingOtpRepository = onboardingOtpRepository;
+        this.auditService = auditService;
     }
 
     /**
@@ -117,7 +118,11 @@ class CleaningService {
     public void terminateExpiredOtpCodes() {
         final Duration otpExpiration = onboardingConfig.getOtpExpirationTime();
         final Date createdDateExpiredOtp = DateUtil.convertExpirationToCreatedDate(otpExpiration);
-        otpService.terminateExpiredOtps(createdDateExpiredOtp);
+        final List<String> otpIds = onboardingOtpRepository.findExpiredOtps(createdDateExpiredOtp);
+        final Date now = new Date();
+        for (List<String> otpIdChunk : Lists.partition(otpIds, BATCH_SIZE)) {
+            terminateAndAuditOtps(otpIdChunk, now);
+        }
     }
 
     /**
@@ -135,7 +140,7 @@ class CleaningService {
         }
         logger.info("Terminating {} expired processes", ids.size());
         for (List<String> idsChunk : Lists.partition(ids, BATCH_SIZE)) {
-            onboardingProcessRepository.terminate(idsChunk, now, OnboardingProcessEntity.ERROR_PROCESS_EXPIRED_ONBOARDING, ErrorOrigin.PROCESS_LIMIT_CHECK);
+            terminateAndAuditProcesses(idsChunk, now, OnboardingProcessEntity.ERROR_PROCESS_EXPIRED_ONBOARDING, ErrorOrigin.PROCESS_LIMIT_CHECK);
         }
     }
 
@@ -161,8 +166,8 @@ class CleaningService {
 
         final Date now = new Date();
         for (List<String> idsChunk : Lists.partition(ids, BATCH_SIZE)) {
-            documentVerificationRepository.terminate(idsChunk, now, ERROR_MESSAGE_DOCUMENT_VERIFICATION_EXPIRED, ErrorOrigin.PROCESS_LIMIT_CHECK);
             logger.info("Terminating {} expired document verifications", idsChunk.size());
+            terminateAndAuditDocuments(idsChunk, now, ERROR_MESSAGE_DOCUMENT_VERIFICATION_EXPIRED, ErrorOrigin.PROCESS_LIMIT_CHECK);
         }
     }
 
@@ -181,7 +186,7 @@ class CleaningService {
 
         for (List<String> idsChunk : Lists.partition(ids, BATCH_SIZE)) {
             logger.info("Terminating {} expired identity verifications", idsChunk.size());
-            identityVerificationRepository.terminate(idsChunk, now, OnboardingProcessEntity.ERROR_PROCESS_EXPIRED_ONBOARDING, errorOrigin);
+            terminateAndAuditIdentityVerifications(idsChunk, now, OnboardingProcessEntity.ERROR_PROCESS_EXPIRED_ONBOARDING, errorOrigin);
         }
     }
 
@@ -204,15 +209,43 @@ class CleaningService {
 
         for (List<String> processIdChunk : Lists.partition(processIds, BATCH_SIZE)) {
             logger.info("Terminating {} processes", processIdChunk.size());
-            onboardingProcessRepository.terminate(processIdChunk, now, errorDetail, errorOrigin);
+            terminateAndAuditProcesses(processIdChunk, now, errorDetail, errorOrigin);
 
             final List<String> identityVerificationIds = identityVerificationRepository.findNotCompletedIdentityVerifications(processIdChunk);
             logger.info("Terminating {} identity verifications", identityVerificationIds.size());
-            identityVerificationRepository.terminate(identityVerificationIds, now, errorDetail, errorOrigin);
+            terminateAndAuditIdentityVerifications(identityVerificationIds, now, errorDetail, errorOrigin);
 
             final List<String> documentVerificationIds = documentVerificationRepository.findDocumentVerifications(identityVerificationIds, DocumentStatus.ALL_NOT_FINISHED);
             logger.info("Terminating {} document verifications", documentVerificationIds.size());
-            documentVerificationRepository.terminate(documentVerificationIds, now, errorDetail, errorOrigin);
+            terminateAndAuditDocuments(documentVerificationIds, now, errorDetail, errorOrigin);
         }
+    }
+
+    private void terminateAndAuditProcesses(final List<String> processIds, final Date now, final String errorDetail, final ErrorOrigin errorOrigin) {
+        onboardingProcessRepository.terminate(processIds, now, errorDetail, errorOrigin);
+        processIds.forEach(processId ->
+            onboardingProcessRepository.findById(processId).ifPresent(process ->
+                    auditService.audit(process, "Expired process for user: {}, {}", process.getUserId(), errorDetail)));
+    }
+
+    private void terminateAndAuditIdentityVerifications(final List<String> identityVerificationIds, final Date now, final String errorDetail, final ErrorOrigin errorOrigin) {
+        identityVerificationRepository.terminate(identityVerificationIds, now, errorDetail, errorOrigin);
+        identityVerificationIds.forEach(identityVerificationId ->
+                identityVerificationRepository.findById(identityVerificationId).ifPresent(identityVerification ->
+                        auditService.audit(identityVerification, "Expired identity verification for user: {}, {}", identityVerification.getUserId(), errorDetail)));
+    }
+
+    private void terminateAndAuditOtps(final List<String> otpIds, final Date now) {
+        onboardingOtpRepository.terminate(otpIds, now);
+        otpIds.forEach(otpId ->
+                onboardingOtpRepository.findById(otpId).ifPresent(otp ->
+                        auditService.audit(otp, "Expired OTP for user: {}", otp.getProcess().getUserId())));
+    }
+
+    private void terminateAndAuditDocuments(final List<String> documentIds, final Date now, final String errorDetail, final ErrorOrigin errorOrigin) {
+        documentVerificationRepository.terminate(documentIds, now, errorDetail, errorOrigin);
+        documentIds.forEach(documentId ->
+                documentVerificationRepository.findById(documentId).ifPresent(document ->
+                        auditService.audit(document, "Expired Document verification for user: {}, {}", document.getIdentityVerification().getUserId(), errorDetail)));
     }
 }

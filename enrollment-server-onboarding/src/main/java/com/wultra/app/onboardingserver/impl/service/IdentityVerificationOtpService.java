@@ -28,6 +28,7 @@ import com.wultra.app.onboardingserver.common.database.entity.OnboardingOtpEntit
 import com.wultra.app.onboardingserver.common.database.entity.OnboardingProcessEntity;
 import com.wultra.app.onboardingserver.common.enumeration.OnboardingProcessError;
 import com.wultra.app.onboardingserver.common.errorhandling.OnboardingProcessException;
+import com.wultra.app.onboardingserver.common.service.AuditService;
 import com.wultra.app.onboardingserver.common.service.OnboardingProcessLimitService;
 import com.wultra.app.onboardingserver.configuration.IdentityVerificationConfig;
 import com.wultra.app.onboardingserver.errorhandling.OnboardingOtpDeliveryException;
@@ -42,7 +43,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
 
+import static com.wultra.app.enrollmentserver.model.enumeration.IdentityVerificationPhase.OTP_VERIFICATION;
 import static com.wultra.app.enrollmentserver.model.enumeration.IdentityVerificationPhase.PRESENCE_CHECK;
+import static com.wultra.app.enrollmentserver.model.enumeration.IdentityVerificationStatus.NOT_INITIALIZED;
+import static com.wultra.app.enrollmentserver.model.enumeration.IdentityVerificationStatus.VERIFICATION_PENDING;
 
 /**
  * Service implementing OTP delivery and verification during identity verification.
@@ -65,6 +69,10 @@ public class IdentityVerificationOtpService {
 
     private final IdentityVerificationConfig identityVerificationConfig;
 
+    private final IdentityVerificationService identityVerificationService;
+
+    private final AuditService auditService;
+
     /**
      * Service constructor.
      *
@@ -74,6 +82,8 @@ public class IdentityVerificationOtpService {
      * @param processLimitService Process limit service.
      * @param identityVerificationRepository Identity verification repository.
      * @param identityVerificationConfig Identity verification config.
+     * @param identityVerificationService Identity verification service.
+     * @param auditService Audit service.
      */
     public IdentityVerificationOtpService(
             final OnboardingProcessRepository onboardingProcessRepository,
@@ -81,13 +91,18 @@ public class IdentityVerificationOtpService {
             final OtpServiceImpl otpService,
             final OnboardingProcessLimitService processLimitService,
             final IdentityVerificationRepository identityVerificationRepository,
-            final IdentityVerificationConfig identityVerificationConfig) {
+            final IdentityVerificationConfig identityVerificationConfig,
+            final IdentityVerificationService identityVerificationService,
+            final AuditService auditService) {
+
         this.onboardingProcessRepository = onboardingProcessRepository;
         this.onboardingOtpRepository = onboardingOtpRepository;
         this.otpService = otpService;
         this.processLimitService = processLimitService;
         this.identityVerificationRepository = identityVerificationRepository;
         this.identityVerificationConfig = identityVerificationConfig;
+        this.identityVerificationService = identityVerificationService;
+        this.auditService = auditService;
     }
 
     /**
@@ -119,9 +134,7 @@ public class IdentityVerificationOtpService {
      */
     @Transactional
     public void sendOtp(IdentityVerificationEntity identityVerification, OwnerId ownerId) throws OnboardingProcessException, OnboardingOtpDeliveryException {
-        identityVerification.setPhase(IdentityVerificationPhase.OTP_VERIFICATION);
-        identityVerification.setStatus(IdentityVerificationStatus.VERIFICATION_PENDING);
-        logger.info("Switched to OTP_VERIFICATION/VERIFICATION_PENDING; {}", ownerId);
+        identityVerificationService.moveToPhaseAndStatus(identityVerification, OTP_VERIFICATION, VERIFICATION_PENDING, ownerId);
         sendOtpCode(identityVerification.getProcessId(), false);
     }
 
@@ -202,18 +215,13 @@ public class IdentityVerificationOtpService {
             final IdentityVerificationEntity idVerification,
             final OwnerId ownerId) throws OnboardingProcessException {
 
-        idVerification.setPhase(PRESENCE_CHECK);
-        idVerification.setStatus(IdentityVerificationStatus.NOT_INITIALIZED);
-        idVerification.setTimestampLastUpdated(new Date());
         idVerification.setErrorDetail(null);
         idVerification.setErrorOrigin(null);
         idVerification.setRejectReason(null);
         idVerification.setRejectOrigin(null);
-        identityVerificationRepository.save(idVerification);
+        identityVerificationService.moveToPhaseAndStatus(idVerification, PRESENCE_CHECK, NOT_INITIALIZED, ownerId);
 
-        logger.info("Switched to PRESENCE_CHECK/NOT_INITIALIZED; {}", ownerId);
-
-        markVerificationOtpAsFailed(process.getId());
+        markVerificationOtpAsFailed(process.getId(), idVerification);
 
         processLimitService.incrementErrorScore(process, OnboardingProcessError.ERROR_USER_VERIFICATION_OTP_FAILED);
         final OnboardingStatus status = processLimitService.checkOnboardingProcessErrorLimits(process).getStatus();
@@ -223,7 +231,7 @@ public class IdentityVerificationOtpService {
         return response;
     }
 
-    private void markVerificationOtpAsFailed(String processId) throws OnboardingProcessException {
+    private void markVerificationOtpAsFailed(String processId, IdentityVerificationEntity idVerification) throws OnboardingProcessException {
         final OnboardingOtpEntity otp = onboardingOtpRepository.findLastOtp(processId, OtpType.USER_VERIFICATION).orElseThrow(() ->
             new OnboardingProcessException("Onboarding OTP not found, process ID: " + processId));
         otp.setStatus(OtpStatus.FAILED);
@@ -233,6 +241,7 @@ public class IdentityVerificationOtpService {
         otp.setTimestampLastUpdated(now);
         otp.setTimestampFailed(now);
         onboardingOtpRepository.save(otp);
+        auditService.audit(otp, idVerification, "OTP failed for user: {}", idVerification.getUserId());
     }
 
     /**
@@ -247,21 +256,24 @@ public class IdentityVerificationOtpService {
                 new OnboardingProcessException("Onboarding process not found: " + processId));
 
         final String otpCode = createOtpCode(isResend, process);
-        // Send the OTP code
+        final String userId = process.getUserId();
+        final SendOtpCodeRequest request = SendOtpCodeRequest.builder()
+                .processId(processId)
+                .userId(userId)
+                .otpCode(otpCode)
+                .resend(isResend)
+                .locale(LocaleContextHolder.getLocale())
+                .otpType(SendOtpCodeRequest.OtpType.USER_VERIFICATION)
+                .build();
         try {
-            final SendOtpCodeRequest request = SendOtpCodeRequest.builder()
-                    .processId(processId)
-                    .userId(process.getUserId())
-                    .otpCode(otpCode)
-                    .resend(isResend)
-                    .locale(LocaleContextHolder.getLocale())
-                    .otpType(SendOtpCodeRequest.OtpType.USER_VERIFICATION)
-                    .build();
             onboardingProvider.sendOtpCode(request);
         } catch (OnboardingProviderException e) {
             logger.warn("OTP code delivery failed, error: {}", e.getMessage(), e);
             throw new OnboardingOtpDeliveryException(e);
         }
+
+        final String resentPrefix = isResend ? "Resent" : "Sent";
+        auditService.auditOnboardingProvider(process, "{} user verification OTP for user: {}", resentPrefix, userId);
     }
 
     private String createOtpCode(final boolean isResend, final OnboardingProcessEntity process) throws OnboardingOtpDeliveryException, OnboardingProcessException {

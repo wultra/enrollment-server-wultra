@@ -21,14 +21,17 @@ import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.wultra.app.enrollmentserver.model.enumeration.*;
 import com.wultra.app.enrollmentserver.model.integration.*;
-import com.wultra.app.onboardingserver.common.errorhandling.IdentityVerificationException;
-import com.wultra.app.onboardingserver.common.errorhandling.OnboardingProcessLimitException;
-import com.wultra.app.onboardingserver.common.errorhandling.RemoteCommunicationException;
-import com.wultra.app.onboardingserver.configuration.IdentityVerificationConfig;
 import com.wultra.app.onboardingserver.common.database.DocumentVerificationRepository;
 import com.wultra.app.onboardingserver.common.database.entity.DocumentVerificationEntity;
 import com.wultra.app.onboardingserver.common.database.entity.IdentityVerificationEntity;
-import com.wultra.app.onboardingserver.errorhandling.*;
+import com.wultra.app.onboardingserver.common.errorhandling.IdentityVerificationException;
+import com.wultra.app.onboardingserver.common.errorhandling.OnboardingProcessLimitException;
+import com.wultra.app.onboardingserver.common.errorhandling.RemoteCommunicationException;
+import com.wultra.app.onboardingserver.common.service.AuditService;
+import com.wultra.app.onboardingserver.configuration.IdentityVerificationConfig;
+import com.wultra.app.onboardingserver.errorhandling.DocumentVerificationException;
+import com.wultra.app.onboardingserver.errorhandling.PresenceCheckException;
+import com.wultra.app.onboardingserver.errorhandling.PresenceCheckLimitException;
 import com.wultra.app.onboardingserver.impl.service.document.DocumentProcessingService;
 import com.wultra.app.onboardingserver.impl.service.internal.JsonSerializationService;
 import com.wultra.app.onboardingserver.provider.PresenceCheckProvider;
@@ -40,6 +43,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+
+import static com.wultra.app.enrollmentserver.model.enumeration.IdentityVerificationPhase.PRESENCE_CHECK;
+import static com.wultra.app.enrollmentserver.model.enumeration.IdentityVerificationStatus.*;
 
 /**
  * Service implementing presence check.
@@ -58,6 +64,7 @@ public class PresenceCheckService {
     private final JsonSerializationService jsonSerializationService;
     private final PresenceCheckProvider presenceCheckProvider;
     private final PresenceCheckLimitService presenceCheckLimitService;
+    private final AuditService auditService;
 
     /**
      * Service constructor.
@@ -67,15 +74,19 @@ public class PresenceCheckService {
      * @param jsonSerializationService JSON serialization service.
      * @param presenceCheckProvider Presence check provider.
      * @param presenceCheckLimitService Presence check limit service.
+     * @param auditService Audit service.
      */
     @Autowired
     public PresenceCheckService(
-            IdentityVerificationConfig identityVerificationConfig,
-            DocumentVerificationRepository documentVerificationRepository,
-            DocumentProcessingService documentProcessingService,
-            IdentityVerificationService identityVerificationService,
-            JsonSerializationService jsonSerializationService,
-            PresenceCheckProvider presenceCheckProvider, PresenceCheckLimitService presenceCheckLimitService) {
+            final IdentityVerificationConfig identityVerificationConfig,
+            final DocumentVerificationRepository documentVerificationRepository,
+            final DocumentProcessingService documentProcessingService,
+            final IdentityVerificationService identityVerificationService,
+            final JsonSerializationService jsonSerializationService,
+            final PresenceCheckProvider presenceCheckProvider,
+            final PresenceCheckLimitService presenceCheckLimitService,
+            final AuditService auditService) {
+
         this.identityVerificationConfig = identityVerificationConfig;
         this.documentVerificationRepository = documentVerificationRepository;
         this.documentProcessingService = documentProcessingService;
@@ -83,6 +94,7 @@ public class PresenceCheckService {
         this.jsonSerializationService = jsonSerializationService;
         this.presenceCheckProvider = presenceCheckProvider;
         this.presenceCheckLimitService = presenceCheckLimitService;
+        this.auditService = auditService;
     }
 
     /**
@@ -93,10 +105,7 @@ public class PresenceCheckService {
      */
     @Transactional
     public void prepareNotInitialized(OwnerId ownerId, IdentityVerificationEntity idVerification) {
-        idVerification.setPhase(IdentityVerificationPhase.PRESENCE_CHECK);
-        idVerification.setStatus(IdentityVerificationStatus.NOT_INITIALIZED);
-        idVerification.setTimestampLastUpdated(ownerId.getTimestamp());
-        logger.info("Switched to PRESENCE_CHECK/NOT_INITIALIZED; {}", ownerId);
+        identityVerificationService.moveToPhaseAndStatus(idVerification, PRESENCE_CHECK, NOT_INITIALIZED, ownerId);
     }
 
     /**
@@ -128,6 +137,7 @@ public class PresenceCheckService {
             } else {
                 Image photo = selectPhotoForPresenceCheck(ownerId, docsWithPhoto);
                 presenceCheckProvider.initPresenceCheck(ownerId, photo);
+                auditService.auditPresenceCheckProvider(idVerification, "Presence check initialized for user: {}", ownerId.getUserId());
             }
         }
         return startPresenceCheck(ownerId, idVerification);
@@ -149,6 +159,7 @@ public class PresenceCheckService {
                                           IdentityVerificationEntity idVerification,
                                           SessionInfo sessionInfo) throws PresenceCheckException {
         final PresenceCheckResult result = presenceCheckProvider.getResult(ownerId, sessionInfo);
+        auditService.auditPresenceCheckProvider(idVerification, "Got presence check result: {} for user: ", result.getStatus(), ownerId.getUserId());
 
         if (result.getStatus() != PresenceCheckStatus.ACCEPTED) {
             logger.info("Not accepted presence check, status: {}, {}", result.getStatus(), ownerId);
@@ -199,6 +210,9 @@ public class PresenceCheckService {
     public void cleanup(OwnerId ownerId) throws PresenceCheckException {
         if (identityVerificationConfig.isPresenceCheckCleanupEnabled()) {
             presenceCheckProvider.cleanupIdentityData(ownerId);
+            final IdentityVerificationEntity identityVerification = identityVerificationService.findByOptional(ownerId).orElseThrow(() ->
+                    new PresenceCheckException("Unable to find identity verification for " + ownerId));
+            auditService.auditPresenceCheckProvider(identityVerification, "Clean up presence check data for user: {}", ownerId.getUserId());
         } else {
             logger.debug("Skipped cleanup of presence check data at the provider (not enabled), {}", ownerId);
         }
@@ -214,6 +228,7 @@ public class PresenceCheckService {
      */
     private SessionInfo startPresenceCheck(OwnerId ownerId, IdentityVerificationEntity idVerification) throws PresenceCheckException {
         SessionInfo sessionInfo = presenceCheckProvider.startPresenceCheck(ownerId);
+        auditService.auditPresenceCheckProvider(idVerification, "Presence check started for user: {}", ownerId.getUserId());
 
         String sessionInfoJson = jsonSerializationService.serialize(sessionInfo);
         if (sessionInfoJson == null) {
@@ -222,11 +237,7 @@ public class PresenceCheckService {
         }
 
         idVerification.setSessionInfo(sessionInfoJson);
-        idVerification.setPhase(IdentityVerificationPhase.PRESENCE_CHECK);
-        idVerification.setStatus(IdentityVerificationStatus.IN_PROGRESS);
-        idVerification.setTimestampLastUpdated(ownerId.getTimestamp());
-
-        logger.info("Switched to PRESENCE_CHECK/IN_PROGRESS; {}", ownerId);
+        identityVerificationService.moveToPhaseAndStatus(idVerification, PRESENCE_CHECK, IN_PROGRESS, ownerId);
 
         return sessionInfo;
     }
@@ -259,26 +270,24 @@ public class PresenceCheckService {
         }
         logger.info("Selected {} as the source of person photo, {}", preferredDocWithPhoto, ownerId);
         String photoId = preferredDocWithPhoto.getPhotoId();
-        return identityVerificationService.getPhotoById(photoId);
+        return identityVerificationService.getPhotoById(photoId, ownerId);
     }
 
     private void evaluatePresenceCheckResult(OwnerId ownerId,
                                              IdentityVerificationEntity idVerification,
                                              PresenceCheckResult result) {
+
+        final IdentityVerificationPhase phase = idVerification.getPhase();
         switch (result.getStatus()) {
             case ACCEPTED:
-                idVerification.setStatus(IdentityVerificationStatus.ACCEPTED);
-                idVerification.setTimestampLastUpdated(ownerId.getTimestamp());
                 // The timestampFinished parameter is not set yet, there may be other steps ahead
-                logger.info("Switched to {}/ACCEPTED; {}", idVerification.getPhase(), ownerId);
+                identityVerificationService.moveToPhaseAndStatus(idVerification, phase, ACCEPTED, ownerId);
                 break;
             case FAILED:
                 idVerification.setErrorDetail(result.getErrorDetail());
                 idVerification.setErrorOrigin(ErrorOrigin.PRESENCE_CHECK);
-                idVerification.setStatus(IdentityVerificationStatus.FAILED);
-                idVerification.setTimestampLastUpdated(ownerId.getTimestamp());
                 idVerification.setTimestampFailed(ownerId.getTimestamp());
-                logger.info("Switched to {}/FAILED; {}", idVerification.getPhase(), ownerId);
+                identityVerificationService.moveToPhaseAndStatus(idVerification, phase, FAILED, ownerId);
                 logger.warn("Presence check failed, {}, errorDetail: '{}'", ownerId, result.getErrorDetail());
                 break;
             case IN_PROGRESS:
@@ -287,14 +296,13 @@ public class PresenceCheckService {
             case REJECTED:
                 idVerification.setRejectReason(result.getRejectReason());
                 idVerification.setRejectOrigin(RejectOrigin.PRESENCE_CHECK);
-                idVerification.setStatus(IdentityVerificationStatus.REJECTED);
-                idVerification.setTimestampLastUpdated(ownerId.getTimestamp());
                 idVerification.setTimestampFinished(ownerId.getTimestamp());
                 logger.info("Presence check rejected, {}, rejectReason: '{}'", ownerId, result.getRejectReason());
-                logger.info("Switched to {}/REJECTED; {}", idVerification.getPhase(), ownerId);
+                identityVerificationService.moveToPhaseAndStatus(idVerification, phase, REJECTED, ownerId);
                 break;
             default:
-                throw new IllegalStateException("Unexpected presence check result status: " + result.getStatus());
+                throw new IllegalStateException(String.format("Unexpected presence check result status: %s, identity verification ID: %s",
+                        result.getStatus(), idVerification.getId()));
         }
     }
 
@@ -305,33 +313,24 @@ public class PresenceCheckService {
      * @throws PresenceCheckException When an error during validating the identity verification status occurred.
      */
     private IdentityVerificationEntity fetchIdVerification(OwnerId ownerId) throws PresenceCheckException {
-        Optional<IdentityVerificationEntity> idVerificationOptional = identityVerificationService.findByOptional(ownerId);
-        if (idVerificationOptional.isEmpty()) {
-            logger.error("No identity verification entity found to initialize the presence check, {}", ownerId);
-            throw new PresenceCheckException("Unable to initialize presence check");
-        }
+        final IdentityVerificationEntity idVerification = identityVerificationService.findByOptional(ownerId).orElseThrow(() ->
+                new PresenceCheckException("No identity verification entity found to initialize the presence check, " + ownerId));
 
-        IdentityVerificationEntity idVerification = idVerificationOptional.get();
+        final IdentityVerificationPhase phase = idVerification.getPhase();
+        final IdentityVerificationStatus status = idVerification.getStatus();
 
-        if (IdentityVerificationPhase.PRESENCE_CHECK.equals(idVerification.getPhase()) &&
-                IdentityVerificationStatus.ACCEPTED.equals(idVerification.getStatus())) {
+        if (phase == PRESENCE_CHECK && status == ACCEPTED) {
             logger.error("The presence check is already accepted, not allowed to initialize it again, {}", ownerId);
             throw new PresenceCheckException("Unable to initialize presence check");
-        } else if (IdentityVerificationPhase.PRESENCE_CHECK.equals(idVerification.getPhase()) &&
-                IdentityVerificationStatus.IN_PROGRESS.equals(idVerification.getStatus())) {
+        } else if (phase == PRESENCE_CHECK && status == IN_PROGRESS) {
             logger.info("The presence check is currently in progress, ready to be initialized again, {}", ownerId);
-        } else if (IdentityVerificationPhase.PRESENCE_CHECK.equals(idVerification.getPhase()) &&
-                IdentityVerificationStatus.REJECTED.equals(idVerification.getStatus())) {
+        } else if (phase == PRESENCE_CHECK && status == REJECTED) {
             logger.info("The presence check is rejected, ready to be initialized again, {}", ownerId);
-        } else if (!IdentityVerificationPhase.PRESENCE_CHECK.equals(idVerification.getPhase())) {
-            logger.error("The verification phase is {} but expected {}, {}",
-                    idVerification.getPhase(), IdentityVerificationPhase.PRESENCE_CHECK, ownerId
-            );
+        } else if (phase != PRESENCE_CHECK) {
+            logger.error("The verification phase is {} but expected PRESENCE_CHECK, {}", phase, ownerId);
             throw new PresenceCheckException("Unable to initialize presence check");
-        } else if (!IdentityVerificationStatus.NOT_INITIALIZED.equals(idVerification.getStatus())) {
-            logger.error("The verification status is {} but expected {}, {}",
-                    idVerification.getStatus(), IdentityVerificationStatus.NOT_INITIALIZED, ownerId
-            );
+        } else if (status != NOT_INITIALIZED) {
+            logger.error("The verification status is {} but expected NOT_INITIALIZED, {}", status, ownerId);
             throw new PresenceCheckException("Unable to initialize presence check");
         }
 

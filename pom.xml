@@ -99,6 +99,7 @@
         <spring-statemachine.version>3.2.0</spring-statemachine.version>
         <swagger-annotations.version>2.2.0</swagger-annotations.version>
         <rest-client.version>1.5.2</rest-client.version>
+        <audit-base.version>1.5.2</audit-base.version>
     </properties>
 
     <dependencyManagement>
@@ -122,6 +123,18 @@
             </dependency>
 
             <dependency>
+                <groupId>io.getlime.core</groupId>
+                <artifactId>rest-client-base</artifactId>
+                <version>${rest-client.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.getlime.core</groupId>
+                <artifactId>audit-base</artifactId>
+                <version>${audit-base.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>io.swagger.core.v3</groupId>
                 <artifactId>swagger-annotations</artifactId>
                 <version>${swagger-annotations.version}</version>
@@ -133,7 +146,6 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
-            <version>1.18.24</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>
