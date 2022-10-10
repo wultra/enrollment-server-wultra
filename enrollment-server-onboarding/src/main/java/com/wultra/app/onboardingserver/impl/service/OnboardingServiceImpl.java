@@ -35,12 +35,16 @@ import com.wultra.app.onboardingserver.common.database.OnboardingProcessReposito
 import com.wultra.app.onboardingserver.common.database.entity.OnboardingProcessEntity;
 import com.wultra.app.onboardingserver.common.errorhandling.OnboardingProcessException;
 import com.wultra.app.onboardingserver.common.errorhandling.RemoteCommunicationException;
+import com.wultra.app.onboardingserver.common.service.AuditService;
 import com.wultra.app.onboardingserver.common.service.CommonOnboardingService;
 import com.wultra.app.onboardingserver.configuration.IdentityVerificationConfig;
 import com.wultra.app.onboardingserver.configuration.OnboardingConfig;
-import com.wultra.app.onboardingserver.errorhandling.*;
+import com.wultra.app.onboardingserver.errorhandling.InvalidRequestObjectException;
+import com.wultra.app.onboardingserver.errorhandling.OnboardingOtpDeliveryException;
+import com.wultra.app.onboardingserver.errorhandling.OnboardingProviderException;
+import com.wultra.app.onboardingserver.errorhandling.TooManyProcessesException;
 import com.wultra.app.onboardingserver.impl.util.DateUtil;
-import com.wultra.app.onboardingserver.provider.*;
+import com.wultra.app.onboardingserver.provider.OnboardingProvider;
 import com.wultra.app.onboardingserver.provider.model.request.ApproveConsentRequest;
 import com.wultra.app.onboardingserver.provider.model.request.ConsentTextRequest;
 import com.wultra.app.onboardingserver.provider.model.request.LookupUserRequest;
@@ -98,6 +102,7 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
      * @param config Onboarding configuration.
      * @param identityVerificationConfig Identity verification config.
      * @param otpService OTP service.
+     * @param auditService audit service.
      */
     @Autowired
     public OnboardingServiceImpl(
@@ -106,9 +111,10 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
             final IdentityVerificationConfig identityVerificationConfig,
             final OtpServiceImpl otpService,
             final ActivationService activationService,
-            final OnboardingProvider onboardingProvider) {
+            final OnboardingProvider onboardingProvider,
+            final AuditService auditService) {
 
-        super(onboardingProcessRepository);
+        super(onboardingProcessRepository, auditService);
         this.onboardingConfig = config;
         this.identityVerificationConfig = identityVerificationConfig;
         this.otpService = otpService;
@@ -147,8 +153,8 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
             process.setTimestampLastUpdated(now);
             process.setTimestampFailed(now);
             onboardingProcessRepository.save(process);
-            logger.warn("Maximum number of processes per day reached for user: {}", userId);
-            throw new TooManyProcessesException();
+            auditService.audit(process, "Maximum number of processes per day reached for user: {}", userId);
+            throw new TooManyProcessesException("Maximum number of processes per day reached for user: " + userId);
         }
 
         final String otpCode = otpService.createOtpCode(process, OtpType.ACTIVATION);
@@ -237,6 +243,7 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
         process.setActivationRemoved(true);
         onboardingProcessRepository.save(process);
 
+        auditService.audit(process, "Process cleaned up for user: {}", process.getUserId());
         return new Response();
     }
 
@@ -292,13 +299,11 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
      * Provide consent text.
      *
      * @param request consent text request
-     * @param userId user identification
      * @return consent response
      */
-    public OnboardingConsentTextResponse fetchConsentText(
-            final OnboardingConsentTextRequest request,
-            final String userId) throws OnboardingProcessException {
-
+    public OnboardingConsentTextResponse fetchConsentText(final OnboardingConsentTextRequest request) throws OnboardingProcessException {
+        final OnboardingProcessEntity process = findProcess(request.getProcessId());
+        final String userId = process.getUserId();
         final ConsentTextRequest providerRequest = ConsentTextRequest.builder()
                 .processId(request.getProcessId())
                 .userId(userId)
@@ -308,6 +313,7 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
 
         try {
             final String consentText = onboardingProvider.fetchConsent(providerRequest);
+            auditService.auditOnboardingProviderDebug(process, "Fetched consent text for user: {}", userId);
             final OnboardingConsentTextResponse response = new OnboardingConsentTextResponse();
             response.setConsentText(consentText);
             return response;
@@ -320,9 +326,10 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
      * Record dis/approval of consent
      *
      * @param request approval request
-     * @param userId user identification
      */
-    public void approveConsent(final OnboardingConsentApprovalRequest request, final String userId) throws OnboardingProcessException {
+    public void approveConsent(final OnboardingConsentApprovalRequest request) throws OnboardingProcessException {
+        final OnboardingProcessEntity process = findProcess(request.getProcessId());
+        final String userId = process.getUserId();
         final ApproveConsentRequest providerRequest = ApproveConsentRequest.builder()
                 .processId(request.getProcessId())
                 .userId(userId)
@@ -332,6 +339,7 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
 
         try {
             final ApproveConsentResponse response = onboardingProvider.approveConsent(providerRequest);
+            auditService.auditOnboardingProvider(process, "Approve consent text for user: {}", userId);
             logger.debug("Got {} for processId={}", response, request.getProcessId());
         } catch (OnboardingProviderException e) {
             throw new OnboardingProcessException("An error when approving consent.", e);
@@ -376,12 +384,14 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
                     .processId(process.getId())
                     .build();
             final LookupUserResponse response = onboardingProvider.lookupUser(lookupUserRequest);
+            auditService.auditOnboardingProvider(process, "Looked up user: {}", response.getUserId());
             if (response.isErrorOccurred()) {
                 logger.warn("Business logic error occurred during user lookup, process ID: {}, error detail: {}", process.getId(), response.getErrorDetail());
                 process.setErrorOrigin(ErrorOrigin.USER_REQUEST);
                 process.setErrorDetail(response.getErrorDetail());
                 process.setTimestampLastUpdated(new Date());
                 onboardingProcessRepository.save(process);
+                auditService.auditOnboardingProvider(process, "Error to look up user: {}, {}", response.getUserId(), response.getErrorDetail());
             }
             return response.getUserId();
         } catch (OnboardingProviderException e) {
@@ -396,6 +406,7 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
         logger.debug("Created process ID: {}", process.getId());
         final String userId = lookupUser(process, identification);
         process.setUserId(userId);
+        auditService.audit(process, "Process started for user: {}", userId);
         return process;
     }
 
@@ -417,6 +428,7 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
                     String.format("Looked up user ID '%s' does not equal to user ID '%s' of process ID %s",
                             userId, process.getUserId(), process.getId()));
         }
+        auditService.audit(process, "Process resumed for user: {}", userId);
         return process;
     }
 
@@ -426,6 +438,7 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
             try {
                 logger.info("Removing activation ID: {} of process ID: {}", activationId, process.getId());
                 activationService.removeActivation(activationId);
+                auditService.auditActivation(process, "Cleanup activation for user: {}", process.getUserId());
             } catch (RemoteCommunicationException e) {
                 throw new OnboardingProcessException(
                         String.format("Unable to remove activation ID: %s of process ID: %s", activationId, process.getId()), e);
@@ -457,12 +470,15 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
             logger.warn("OTP code delivery failed, error: {}", e.getMessage(), e);
             throw new OnboardingOtpDeliveryException(e);
         }
+
+        auditService.auditOnboardingProvider(process, "Sent activation OTP for user: {}", process.getUserId());
     }
 
     private void resendOtp(final OnboardingProcessEntity process, final String otpCode) throws OnboardingOtpDeliveryException {
+        final String userId = process.getUserId();
         final SendOtpCodeRequest sendOtpCodeRequest = SendOtpCodeRequest.builder()
                 .processId(process.getId())
-                .userId(process.getUserId())
+                .userId(userId)
                 .otpCode(otpCode)
                 .locale(LocaleContextHolder.getLocale())
                 .resend(true)
@@ -474,5 +490,7 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
             logger.warn("OTP code resend failed, error: {}", e.getMessage(), e);
             throw new OnboardingOtpDeliveryException(e);
         }
+
+        auditService.auditOnboardingProvider(process, "Resent activation OTP for user: {}", userId);
     }
 }
