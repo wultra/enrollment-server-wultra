@@ -28,6 +28,7 @@ import com.wultra.app.onboardingserver.common.database.OnboardingOtpRepository;
 import com.wultra.app.onboardingserver.common.database.OnboardingProcessRepository;
 import com.wultra.app.onboardingserver.common.errorhandling.ActivationExceptionHandler;
 import com.wultra.app.onboardingserver.common.service.*;
+import com.wultra.core.audit.base.Audit;
 import com.wultra.security.powerauth.client.PowerAuthClient;
 import io.getlime.security.powerauth.rest.api.spring.service.HttpCustomizationService;
 import org.slf4j.Logger;
@@ -68,11 +69,12 @@ public class OnboardingComponentsConfiguration {
      * Register onboarding service bean.
      *
      * @param onboardingProcessRepository onboarding process repository
+     * @param auditService Audit service.
      * @return onboarding service bean
      */
     @Bean
-    public OnboardingService onboardingService(final OnboardingProcessRepository onboardingProcessRepository) {
-        return new CommonOnboardingService(onboardingProcessRepository);
+    public OnboardingService onboardingService(final OnboardingProcessRepository onboardingProcessRepository, final AuditService auditService) {
+        return new CommonOnboardingService(onboardingProcessRepository, auditService);
     }
 
     /**
@@ -81,6 +83,7 @@ public class OnboardingComponentsConfiguration {
      * @param onboardingOtpRepository onboarding otp repository
      * @param onboardingProcessRepository onboarding process repository
      * @param onboardingConfig onboarding config
+     * @param auditService Audit service.
      * @return otp service bean
      */
     @Bean
@@ -89,9 +92,10 @@ public class OnboardingComponentsConfiguration {
             final OnboardingProcessRepository onboardingProcessRepository,
             final CommonOnboardingConfig onboardingConfig,
             final OnboardingProcessLimitService processLimitService,
-            final IdentityVerificationLimitService identityVerificationLimitService) {
+            final IdentityVerificationLimitService identityVerificationLimitService,
+            final AuditService auditService) {
 
-        return new CommonOtpService(onboardingOtpRepository, onboardingProcessRepository, onboardingConfig, processLimitService, identityVerificationLimitService);
+        return new CommonOtpService(onboardingOtpRepository, onboardingProcessRepository, onboardingConfig, processLimitService, identityVerificationLimitService, auditService);
     }
 
     /**
@@ -108,11 +112,16 @@ public class OnboardingComponentsConfiguration {
      * Register process limit service.
      * @param config Common onboarding process configuration.
      * @param onboardingProcessRepository Onboarding process repository.
+     * @param auditService Audit service.
      * @return Onboarding process limit service.
      */
     @Bean
-    public OnboardingProcessLimitService processLimitService(final CommonOnboardingConfig config, final OnboardingProcessRepository onboardingProcessRepository) {
-        return new OnboardingProcessLimitService(config, onboardingProcessRepository);
+    public OnboardingProcessLimitService processLimitService(
+            final CommonOnboardingConfig config,
+            final OnboardingProcessRepository onboardingProcessRepository,
+            final AuditService auditService) {
+
+        return new OnboardingProcessLimitService(config, onboardingProcessRepository, auditService);
     }
 
     /**
@@ -123,7 +132,8 @@ public class OnboardingComponentsConfiguration {
      * @param onboardingProcessRepository Onboarding process repository.
      * @param activationFlagService Activation flag service.
      * @param onboardingProcessLimitService Onboarding process limit service.
-     * @return Identity verificaftion limit service.
+     * @param auditService Audit service.
+     * @return Identity verification limit service.
      */
     @Bean
     public IdentityVerificationLimitService identityVerificationLimitService(
@@ -132,8 +142,10 @@ public class OnboardingComponentsConfiguration {
             final CommonOnboardingConfig config,
             final OnboardingProcessRepository onboardingProcessRepository,
             final ActivationFlagService activationFlagService,
-            final OnboardingProcessLimitService onboardingProcessLimitService) {
-        return new IdentityVerificationLimitService(identityVerificationRepository, documentVerificationRepository, config, onboardingProcessRepository, activationFlagService, onboardingProcessLimitService);
+            final OnboardingProcessLimitService onboardingProcessLimitService,
+            final AuditService auditService) {
+
+        return new IdentityVerificationLimitService(identityVerificationRepository, documentVerificationRepository, config, onboardingProcessRepository, activationFlagService, onboardingProcessLimitService, auditService);
     }
 
     /**
@@ -177,5 +189,16 @@ public class OnboardingComponentsConfiguration {
     @Order(Ordered.HIGHEST_PRECEDENCE)
     public ActivationExceptionHandler activationExceptionHandler(){
         return new ActivationExceptionHandler();
+    }
+
+    /**
+     * Register audit service.
+     *
+     * @param audit Audit.
+     * @return Audit service.
+     */
+    @Bean
+    public AuditService auditService(final Audit audit) {
+        return new AuditService(audit);
     }
 }
