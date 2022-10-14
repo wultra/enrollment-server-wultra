@@ -90,8 +90,6 @@ public class IdentityVerificationService {
 
     private final AuditService auditService;
 
-    private final OnboardingProcessRepository onboardingProcessRepository;
-
     private static final List<DocumentStatus> DOCUMENT_STATUSES_PROCESSED = Arrays.asList(DocumentStatus.ACCEPTED, DocumentStatus.FAILED, DocumentStatus.REJECTED);
 
     /**
@@ -107,7 +105,6 @@ public class IdentityVerificationService {
      * @param processService Common onboarding process service.
      * @param processLimitService Onboarding process limit service.
      * @param auditService Audit service.
-     * @param onboardingProcessRepository Onboarding process repository.
      */
     @Autowired
     public IdentityVerificationService(
@@ -122,7 +119,7 @@ public class IdentityVerificationService {
             final CommonOnboardingService processService,
             final OnboardingProcessLimitService processLimitService,
             final RequiredDocumentTypesGuard requiredDocumentTypesGuard,
-            final AuditService auditService, OnboardingProcessRepository onboardingProcessRepository) {
+            final AuditService auditService) {
 
         this.identityVerificationConfig = identityVerificationConfig;
         this.documentDataRepository = documentDataRepository;
@@ -136,7 +133,6 @@ public class IdentityVerificationService {
         this.processLimitService = processLimitService;
         this.requiredDocumentTypesGuard = requiredDocumentTypesGuard;
         this.auditService = auditService;
-        this.onboardingProcessRepository = onboardingProcessRepository;
     }
 
     /**
@@ -310,7 +306,7 @@ public class IdentityVerificationService {
      * @throws RemoteCommunicationException In case of remote communication error.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void checkVerificationResult(IdentityVerificationPhase phase, OwnerId ownerId, IdentityVerificationEntity idVerification)
+    public void checkVerificationResult(final OwnerId ownerId, final IdentityVerificationEntity idVerification)
             throws DocumentVerificationException, OnboardingProcessException, RemoteCommunicationException {
         List<DocumentVerificationEntity> allDocVerifications =
                 documentVerificationRepository.findAllDocumentVerifications(idVerification,
@@ -326,14 +322,14 @@ public class IdentityVerificationService {
             DocumentsVerificationResult docVerificationResult = documentVerificationProvider.getVerificationResult(ownerId, entry.getKey());
             auditService.auditDocumentVerificationProvider(idVerification, "Got verification result: {} for user: {}", docVerificationResult.getStatus(), ownerId.getUserId());
 
-            logger.debug("Onboarding process will be locked using PESSIMISTIC_WRITE lock, {}", idVerification.getProcessId());
-            onboardingProcessRepository.findByIdWithLock(idVerification.getProcessId());
+            processService.findProcessWithLock(idVerification.getProcessId());
 
             verificationProcessingService.processVerificationResult(ownerId, entry.getValue(), docVerificationResult);
         }
 
         if (allDocVerifications.stream()
                 .anyMatch(docVerification -> DocumentStatus.VERIFICATION_IN_PROGRESS.equals(docVerification.getStatus()))) {
+            logger.debug("Some documents still VERIFICATION_IN_PROGRESS for identity verification ID: {}", idVerification.getId());
             return;
         }
 
@@ -342,7 +338,7 @@ public class IdentityVerificationService {
             return;
         }
 
-        resolveIdentityVerificationResult(phase, idVerification, allDocVerifications, ownerId);
+        resolveIdentityVerificationResult(IdentityVerificationPhase.DOCUMENT_VERIFICATION, idVerification, allDocVerifications, ownerId);
         idVerification.setTimestampLastUpdated(ownerId.getTimestamp());
         identityVerificationRepository.save(idVerification);
 
@@ -363,15 +359,13 @@ public class IdentityVerificationService {
      * Process identity verification result for document verifications which have already been previously processed.
      * @param ownerId Owner identification.
      * @param idVerification Identity verification entity.
-     * @param phase Identity verification phase.
      */
     @Transactional
-    public void processDocumentVerificationResult(OwnerId ownerId,
-                                                  IdentityVerificationEntity idVerification,
-                                                  IdentityVerificationPhase phase) {
+    public void processDocumentVerificationResult(final OwnerId ownerId, final IdentityVerificationEntity idVerification) {
         List<DocumentVerificationEntity> processedDocVerifications =
                 documentVerificationRepository.findAllDocumentVerifications(idVerification, DOCUMENT_STATUSES_PROCESSED);
-        resolveIdentityVerificationResult(phase, idVerification, processedDocVerifications, ownerId);
+        resolveIdentityVerificationResult(IdentityVerificationPhase.COMPLETED, idVerification, processedDocVerifications, ownerId);
+        idVerification.setTimestampFinished(ownerId.getTimestamp());
         idVerification.setTimestampLastUpdated(ownerId.getTimestamp());
         identityVerificationRepository.save(idVerification);
     }
@@ -391,7 +385,6 @@ public class IdentityVerificationService {
         if (docVerifications.stream()
                 .allMatch(docVerification -> DocumentStatus.ACCEPTED.equals(docVerification.getStatus()))) {
             // The timestampFinished parameter is not set yet, there may be other steps ahead
-            idVerification.setTimestampFinished(now);
             moveToPhaseAndStatus(idVerification, phase, ACCEPTED, ownerId);
         } else {
             docVerifications.stream()
