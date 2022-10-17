@@ -33,6 +33,7 @@ import io.getlime.security.powerauth.rest.api.spring.provider.CustomActivationPr
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -64,6 +65,7 @@ public class MockCustomActivationProvider implements CustomActivationProvider {
     }
 
     @Override
+    @Transactional
     public String lookupUserIdForAttributes(Map<String, String> identityAttributes, Map<String, Object> context) throws PowerAuthActivationException {
         // Testing of onboarding process, identityAttributes contain processId and otpCode
         final String credentialsType = identityAttributes.get(PA_CUSTOM_ACTIVATION_TYPE);
@@ -133,6 +135,7 @@ public class MockCustomActivationProvider implements CustomActivationProvider {
     }
 
     @Override
+    @Transactional
     public void activationWasCommitted(Map<String, String> identityAttributes, Map<String, Object> customAttributes, String activationId, String userId, String appId, ActivationType activationType, Map<String, Object> context) throws PowerAuthActivationException {
         // Testing of onboarding process, identityAttributes contain processId and otpCode
         final String credentialsType = identityAttributes.get(PA_CUSTOM_ACTIVATION_TYPE);
@@ -162,6 +165,7 @@ public class MockCustomActivationProvider implements CustomActivationProvider {
     }
 
     @Override
+    @Transactional
     public List<String> getActivationFlags(Map<String, String> identityAttributes, Map<String, Object> customAttributes, String activationId, String userId, String appId, ActivationType activationType, Map<String, Object> context) {
         // Testing of onboarding process, the VERIFICATION_PENDING flag needs to be added
         final String credentialsType = identityAttributes.get(PA_CUSTOM_ACTIVATION_TYPE);
