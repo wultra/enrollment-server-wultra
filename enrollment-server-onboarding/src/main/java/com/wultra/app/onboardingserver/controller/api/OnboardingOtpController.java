@@ -94,7 +94,7 @@ public class OnboardingOtpController {
             throw new OnboardingProcessException();
         }
 
-        Optional<OnboardingOtpEntity> otpOptional = onboardingOtpRepository.findLastOtp(processId, otpType);
+        Optional<OnboardingOtpEntity> otpOptional = onboardingOtpRepository.findNewestByProcessIdAndType(processId, otpType);
         if (!otpOptional.isPresent()) {
             logger.warn("OTP not found for process ID: {}", processId);
             throw new OnboardingProcessException();

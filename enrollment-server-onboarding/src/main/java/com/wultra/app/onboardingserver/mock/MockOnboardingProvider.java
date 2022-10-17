@@ -91,7 +91,7 @@ public class MockOnboardingProvider implements OnboardingProvider {
     }
 
     @Override
-    public Mono<EvaluateClientResponse> evaluateClient(EvaluateClientRequest request) {
+    public EvaluateClientResponse evaluateClient(EvaluateClientRequest request) {
         final String processId = request.getProcessId();
         final String userId = request.getUserId();
         final String verificationId = request.getVerificationId();
@@ -99,6 +99,6 @@ public class MockOnboardingProvider implements OnboardingProvider {
 
         logger.info("Evaluating client for process ID: {}, user ID: {}, verification ID: {}, identityVerification ID: {}",
                 processId, userId, verificationId, identityVerificationId);
-        return Mono.just(EvaluateClientResponse.builder().accepted(true).build());
+        return EvaluateClientResponse.builder().accepted(true).build();
     }
 }
