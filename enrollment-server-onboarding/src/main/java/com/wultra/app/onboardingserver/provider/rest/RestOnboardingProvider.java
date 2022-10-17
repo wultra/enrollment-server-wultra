@@ -31,11 +31,8 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.MultiValueMap;
-import reactor.core.publisher.Mono;
-import reactor.core.publisher.Sinks;
 
 import java.util.UUID;
-import java.util.function.Consumer;
 
 /**
  * Rest specialization of {@link OnboardingProvider}.
@@ -153,7 +150,7 @@ class RestOnboardingProvider implements OnboardingProvider {
                     .build();
 
         } catch (RestClientException e) {
-            throw new OnboardingProviderException("Unable to evaluate client for " + request);
+            throw new OnboardingProviderException("Unable to evaluate client for " + request, e);
         }
     }
 
