@@ -22,7 +22,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>enrollment-server-onboarding-wultra</artifactId>
-    <name>enrollment-server-onboarding</name>
+    <name>enrollment-server-onboarding-wultra</name>
     <description>Base implementation of the onboarding server.</description>
     <packaging>war</packaging>
 
