@@ -82,6 +82,7 @@ public class OnboardingComponentsConfiguration {
      *
      * @param onboardingOtpRepository onboarding otp repository
      * @param onboardingProcessRepository onboarding process repository
+     * @param identityVerificationRepository Identity verification repository.
      * @param onboardingConfig onboarding config
      * @param auditService Audit service.
      * @return otp service bean
@@ -90,12 +91,13 @@ public class OnboardingComponentsConfiguration {
     public OtpService otpService(
             final OnboardingOtpRepository onboardingOtpRepository,
             final OnboardingProcessRepository onboardingProcessRepository,
+            final IdentityVerificationRepository identityVerificationRepository,
             final CommonOnboardingConfig onboardingConfig,
             final OnboardingProcessLimitService processLimitService,
             final IdentityVerificationLimitService identityVerificationLimitService,
             final AuditService auditService) {
 
-        return new CommonOtpService(onboardingOtpRepository, onboardingProcessRepository, onboardingConfig, processLimitService, identityVerificationLimitService, auditService);
+        return new CommonOtpService(onboardingOtpRepository, onboardingProcessRepository, identityVerificationRepository, onboardingConfig, processLimitService, identityVerificationLimitService, auditService);
     }
 
     /**
