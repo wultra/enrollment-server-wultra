@@ -113,7 +113,7 @@ public class WultraMockDocumentVerificationProvider implements DocumentVerificat
         }
         result.setResults(submitResults);
         submitResults.forEach(submitResult ->
-            submittedDocs.put(submitResult.getUploadId(), submitResult));
+                submittedDocs.put(submitResult.getUploadId(), submitResult));
 
         logger.info("Mock - submitted documents, {}", id);
         return result;
