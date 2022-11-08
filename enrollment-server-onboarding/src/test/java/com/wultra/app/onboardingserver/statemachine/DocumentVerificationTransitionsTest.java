@@ -110,7 +110,7 @@ class DocumentVerificationTransitionsTest extends AbstractStateMachineTest {
 
         prepareTest(stateMachine)
                 .sendEvent(message)
-                .expectState(OnboardingState.CLIENT_EVALUATION_IN_PROGRESS)
+                .expectState(OnboardingState.DOCUMENT_VERIFICATION_FINAL_IN_PROGRESS)
                 .and()
                 .build()
                 .test();
@@ -140,8 +140,8 @@ class DocumentVerificationTransitionsTest extends AbstractStateMachineTest {
     }
 
     private IdentityVerificationEntity createIdentityVerificationLocal(IdentityVerificationPhase phase, IdentityVerificationStatus status) {
-        IdentityVerificationEntity idVerification =
-                super.createIdentityVerification(phase, status);
+        final IdentityVerificationEntity idVerification = super.createIdentityVerification(phase, status);
+
         when(onboardingProcessRepository.findByActivationIdAndStatusWithLock(idVerification.getActivationId(), OnboardingStatus.VERIFICATION_IN_PROGRESS))
                 .thenReturn(Optional.of(createOnboardingProcessEntity()));
         return idVerification;
