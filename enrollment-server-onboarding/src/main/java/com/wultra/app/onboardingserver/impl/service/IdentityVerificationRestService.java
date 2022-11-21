@@ -20,12 +20,10 @@ package com.wultra.app.onboardingserver.impl.service;
 import com.wultra.app.enrollmentserver.api.model.onboarding.request.*;
 import com.wultra.app.enrollmentserver.api.model.onboarding.response.*;
 import com.wultra.app.enrollmentserver.api.model.onboarding.response.data.ConfigurationDataDto;
-import com.wultra.app.enrollmentserver.api.model.onboarding.response.data.DocumentMetadataResponseDto;
 import com.wultra.app.enrollmentserver.model.DocumentMetadata;
 import com.wultra.app.enrollmentserver.model.enumeration.OnboardingStatus;
 import com.wultra.app.enrollmentserver.model.integration.OwnerId;
 import com.wultra.app.enrollmentserver.model.integration.VerificationSdkInfo;
-import com.wultra.app.onboardingserver.common.database.entity.DocumentVerificationEntity;
 import com.wultra.app.onboardingserver.common.database.entity.IdentityVerificationEntity;
 import com.wultra.app.onboardingserver.common.database.entity.OnboardingProcessEntity;
 import com.wultra.app.onboardingserver.common.errorhandling.*;
@@ -61,7 +59,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.Nullable;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -135,7 +132,6 @@ public class IdentityVerificationRestService {
     /**
      * Initialize identity verification.
      * @param request Initialize identity verification request.
-     * @param eciesContext ECIES context.
      * @param apiAuthentication PowerAuth authentication.
      * @return Response.
      * @throws PowerAuthAuthenticationException Thrown when request authentication fails.
@@ -145,13 +141,11 @@ public class IdentityVerificationRestService {
      */
     @Transactional
     public ResponseEntity<Response> initializeIdentityVerification(ObjectRequest<IdentityVerificationInitRequest> request,
-                                                                   EciesEncryptionContext eciesContext,
                                                                    PowerAuthApiAuthentication apiAuthentication)
             throws PowerAuthAuthenticationException, IdentityVerificationException, PowerAuthEncryptionException, OnboardingProcessException {
 
         final String operationDescription = "initializing identity verification";
         checkApiAuthentication(apiAuthentication, operationDescription);
-        checkEciesContext(eciesContext, operationDescription);
         checkRequestObject(request, operationDescription);
 
         // Initialize identity verification
@@ -171,7 +165,6 @@ public class IdentityVerificationRestService {
      * Check status of identity verification.
      *
      * @param request Document submit request.
-     * @param eciesContext ECIES context.
      * @param apiAuthentication PowerAuth authentication.
      * @return Document submit response.
      * @throws PowerAuthAuthenticationException Thrown when request authentication fails.
@@ -180,13 +173,11 @@ public class IdentityVerificationRestService {
      * @throws OnboardingProcessException Thrown when onboarding process is invalid.
      */
     public ObjectResponse<IdentityVerificationStatusResponse> checkIdentityVerificationStatus(ObjectRequest<IdentityVerificationStatusRequest> request,
-                                                                                              EciesEncryptionContext eciesContext,
                                                                                               PowerAuthApiAuthentication apiAuthentication)
             throws PowerAuthAuthenticationException, PowerAuthEncryptionException, RemoteCommunicationException, OnboardingProcessException {
 
         final String operationDescription = "checking identity verification status";
         checkApiAuthentication(apiAuthentication, operationDescription);
-        checkEciesContext(eciesContext, operationDescription);
         checkRequestObject(request, operationDescription);
 
         final OwnerId ownerId = PowerAuthUtil.getOwnerId(apiAuthentication);
@@ -215,7 +206,7 @@ public class IdentityVerificationRestService {
      * @throws OnboardingProcessLimitException Thrown when maximum failed attempts for identity verification have been reached.
      */
     @Transactional
-    public ObjectResponse<DocumentSubmitResponse> submitDocuments(ObjectRequest<DocumentSubmitRequest> request,
+    public Response submitDocuments(ObjectRequest<DocumentSubmitRequest> request,
                                                                   EciesEncryptionContext eciesContext,
                                                                   PowerAuthApiAuthentication apiAuthentication)
             throws PowerAuthAuthenticationException, PowerAuthEncryptionException, DocumentSubmitException, OnboardingProcessException, IdentityVerificationLimitException, RemoteCommunicationException, IdentityVerificationException, OnboardingProcessLimitException {
@@ -232,16 +223,9 @@ public class IdentityVerificationRestService {
         logger.debug("Onboarding process will be locked using PESSIMISTIC_WRITE lock, {}", processId);
         onboardingService.verifyProcessIdAndLock(ownerId, processId, OnboardingStatus.VERIFICATION_IN_PROGRESS);
 
-        // Submit documents for verification
-        final List<DocumentVerificationEntity> docVerificationEntities =
-                identityVerificationService.submitDocuments(request.getRequestObject(), ownerId);
+        identityVerificationService.submitDocuments(request.getRequestObject(), ownerId);
 
-        final DocumentSubmitResponse response = new DocumentSubmitResponse();
-        final List<DocumentMetadataResponseDto> respsMetadata =
-                identityVerificationService.createDocsMetadata(docVerificationEntities);
-        response.setDocuments(respsMetadata);
-
-        return new ObjectResponse<>(response);
+        return new Response();
     }
 
     /**
@@ -283,7 +267,6 @@ public class IdentityVerificationRestService {
     /**
      * Check status of document verification related to identity.
      * @param request Document status request.
-     * @param eciesContext ECIES context.
      * @param apiAuthentication PowerAuth authentication.
      * @return Document status response.
      * @throws PowerAuthAuthenticationException Thrown when request authentication fails.
@@ -291,13 +274,11 @@ public class IdentityVerificationRestService {
      * @throws OnboardingProcessException Thrown when onboarding process identifier is invalid.
      */
     public ObjectResponse<DocumentStatusResponse> checkDocumentStatus(ObjectRequest<DocumentStatusRequest> request,
-                                                                      EciesEncryptionContext eciesContext,
                                                                       PowerAuthApiAuthentication apiAuthentication)
             throws PowerAuthAuthenticationException, PowerAuthEncryptionException, OnboardingProcessException {
 
         final String operationDescription = "checking document verification status";
         checkApiAuthentication(apiAuthentication, operationDescription);
-        checkEciesContext(eciesContext, operationDescription);
         checkRequestObject(request, operationDescription);
 
         final OwnerId ownerId = PowerAuthUtil.getOwnerId(apiAuthentication);
@@ -384,7 +365,6 @@ public class IdentityVerificationRestService {
      * Submit presence check process.
      *
      * @param request Presence check initialization request.
-     * @param eciesContext ECIES context.
      * @param apiAuthentication PowerAuth authentication.
      * @return Presence check initialization response.
      * @throws PowerAuthAuthenticationException Thrown when request authentication fails.
@@ -394,13 +374,11 @@ public class IdentityVerificationRestService {
      */
     @Transactional
     public ResponseEntity<Response> submitPresenceCheck(ObjectRequest<PresenceCheckSubmitRequest> request,
-                                                        EciesEncryptionContext eciesContext,
                                                         PowerAuthApiAuthentication apiAuthentication)
             throws IdentityVerificationException, PowerAuthAuthenticationException, PowerAuthEncryptionException, OnboardingProcessException {
 
         final String operationDescription = "submitting presence check";
         checkApiAuthentication(apiAuthentication, operationDescription);
-        checkEciesContext(eciesContext, operationDescription);
         checkRequestObject(request, operationDescription);
 
         final OwnerId ownerId = PowerAuthUtil.getOwnerId(apiAuthentication);
@@ -416,22 +394,21 @@ public class IdentityVerificationRestService {
     /**
      * Resend OTP code to the user.
      * @param request Presence check initialization request.
-     * @param eciesContext ECIES context.
+     * @param apiAuthentication PowerAuth authentication.
      * @return Send OTP response.
      * @throws IdentityVerificationException Thrown when identity verification is not found.
      * @throws PowerAuthEncryptionException Thrown when request decryption fails.
      * @throws OnboardingProcessException Thrown when OTP code could not be generated.
      */
     @Transactional
-    public ResponseEntity<Response> resendOtp(ObjectRequest<IdentityVerificationOtpSendRequest> request,
-                                              EciesEncryptionContext eciesContext)
-            throws IdentityVerificationException, PowerAuthEncryptionException, OnboardingProcessException {
+    public ResponseEntity<Response> resendOtp(
+            final ObjectRequest<IdentityVerificationOtpSendRequest> request,
+            final PowerAuthApiAuthentication apiAuthentication) throws IdentityVerificationException, PowerAuthEncryptionException, OnboardingProcessException {
 
-        checkEciesContext(eciesContext, "resending OTP during identity verification");
         checkRequestObject(request, "resending OTP during identity verification");
 
         // Extract user ID from onboarding process for current activation, lock onboarding process
-        final OwnerId ownerId = extractOwnerId(eciesContext);
+        final OwnerId ownerId = extractOwnerId(apiAuthentication);
         final String processId = request.getRequestObject().getProcessId();
 
         logger.debug("Onboarding process will be locked using PESSIMISTIC_WRITE lock, {}", processId);
@@ -491,13 +468,11 @@ public class IdentityVerificationRestService {
      */
     @Transactional
     public Response cleanup(ObjectRequest<IdentityVerificationCleanupRequest> request,
-                            EciesEncryptionContext eciesContext,
                             PowerAuthApiAuthentication apiAuthentication)
             throws PowerAuthAuthenticationException, PowerAuthEncryptionException, DocumentVerificationException, PresenceCheckException, RemoteCommunicationException, OnboardingProcessException, IdentityVerificationException, OnboardingProcessLimitException {
 
         final String operationDescription = "performing document cleanup";
         checkApiAuthentication(apiAuthentication, operationDescription);
-        checkEciesContext(eciesContext, operationDescription);
         checkRequestObject(request, operationDescription);
 
         final OwnerId ownerId = PowerAuthUtil.getOwnerId(apiAuthentication);
@@ -520,23 +495,23 @@ public class IdentityVerificationRestService {
     /**
      * Obtain consent text.
      * @param request Obtain consent text request.
-     * @param eciesContext ECIES context.
+     * @param apiAuthentication PowerAuth authentication.
      * @return Consent text.
      * @throws OnboardingProcessException Thrown when onboarding process is not found.
      * @throws PowerAuthEncryptionException Thrown when request decryption fails.
      */
     public ObjectResponse<OnboardingConsentTextResponse> fetchConsentText(
             final ObjectRequest<OnboardingConsentTextRequest> request,
-            final EciesEncryptionContext eciesContext) throws OnboardingProcessException, PowerAuthEncryptionException {
+            final PowerAuthApiAuthentication apiAuthentication) throws OnboardingProcessException, PowerAuthEncryptionException, PowerAuthTokenInvalidException {
 
-        checkEciesContext(eciesContext, "obtaining user consent text");
+        checkApiAuthentication(apiAuthentication, "obtaining user consent text");
         checkRequestObject(request, "obtaining user consent text");
 
         final OnboardingConsentTextRequest requestObject = request.getRequestObject();
         logger.debug("Returning consent for {}", requestObject);
         OnboardingConsentTextRequestValidator.validate(requestObject);
 
-        final OwnerId ownerId = extractOwnerId(eciesContext);
+        final OwnerId ownerId = extractOwnerId(apiAuthentication);
         final String processId = requestObject.getProcessId();
 
         logger.debug("Onboarding process will not be locked, {}", processId);
@@ -548,7 +523,6 @@ public class IdentityVerificationRestService {
     /**
      * Approve or reject consent.
      * @param request Approve consent request
-     * @param eciesContext ECIES context.
      * @param apiAuthentication PowerAuth authentication.
      * @return Response.
      * @throws OnboardingProcessException Thrown when onboarding process is not found.
@@ -557,12 +531,10 @@ public class IdentityVerificationRestService {
      */
     public Response approveConsent(
             final ObjectRequest<OnboardingConsentApprovalRequest> request,
-            final EciesEncryptionContext eciesContext,
             final PowerAuthApiAuthentication apiAuthentication) throws OnboardingProcessException, PowerAuthAuthenticationException, PowerAuthEncryptionException {
 
         final String operationDescription = "approving user consent";
         checkApiAuthentication(apiAuthentication, operationDescription);
-        checkEciesContext(eciesContext, operationDescription);
         checkRequestObject(request, operationDescription);
 
         final OnboardingConsentApprovalRequest requestObject = request.getRequestObject();
@@ -587,9 +559,7 @@ public class IdentityVerificationRestService {
      */
     private void checkApiAuthentication(@Nullable PowerAuthApiAuthentication apiAuthentication, String description) throws PowerAuthTokenInvalidException {
         if (apiAuthentication == null) {
-            String errorMessage = String.format("Unable to verify device registration when %s", description);
-            logger.error(errorMessage);
-            throw new PowerAuthTokenInvalidException(errorMessage);
+            throw new PowerAuthTokenInvalidException("Unable to verify device registration when " + description);
         }
     }
 
@@ -601,25 +571,19 @@ public class IdentityVerificationRestService {
      */
     private void checkEciesContext(@Nullable EciesEncryptionContext eciesContext, String description) throws PowerAuthEncryptionException {
         if (eciesContext == null) {
-            String errorMessage = String.format("ECIES encryption failed when %s", description);
-            logger.error(errorMessage);
-            throw new PowerAuthEncryptionException(errorMessage);
+            throw new PowerAuthEncryptionException("ECIES encryption failed when " + description);
         }
     }
 
     private void checkRequest(@Nullable Object request, String description) throws PowerAuthEncryptionException {
         if (request == null) {
-            String errorMessage = String.format("Invalid request received when %s", description);
-            logger.error(errorMessage);
-            throw new PowerAuthEncryptionException(errorMessage);
+            throw new PowerAuthEncryptionException("Invalid request received when " + description);
         }
     }
 
     private void checkRequestObject(@Nullable ObjectRequest<?> request, String description) throws PowerAuthEncryptionException {
         if (request == null || request.getRequestObject() == null) {
-            String errorMessage = String.format("Invalid request received when %s", description);
-            logger.error(errorMessage);
-            throw new PowerAuthEncryptionException(errorMessage);
+            throw new PowerAuthEncryptionException("Invalid request received when " + description);
         }
     }
 
@@ -630,7 +594,27 @@ public class IdentityVerificationRestService {
      * @return Owner identification.
      */
     private OwnerId extractOwnerId(EciesEncryptionContext eciesContext) throws OnboardingProcessException {
-        final OnboardingProcessEntity onboardingProcess = onboardingService.findExistingProcessWithVerificationInProgress(eciesContext.getActivationId());
+        return extractOwnerId(eciesContext.getActivationId());
+    }
+
+    /**
+     * Extract owner identification from PowerAuth authentication. The onboarding process is not locked.
+     *
+     * @param apiAuthentication PowerAuth authentication.
+     * @return Owner identification.
+     */
+    private OwnerId extractOwnerId(final PowerAuthApiAuthentication apiAuthentication) throws OnboardingProcessException {
+        return extractOwnerId(apiAuthentication.getActivationContext().getActivationId());
+    }
+
+    /**
+     * Extract owner identification from activation ID. The onboarding process is not locked.
+     *
+     * @param activationId Activation ID.
+     * @return Owner identification.
+     */
+    private OwnerId extractOwnerId(final String activationId) throws OnboardingProcessException {
+        final OnboardingProcessEntity onboardingProcess = onboardingService.findExistingProcessWithVerificationInProgress(activationId);
         final OwnerId ownerId = new OwnerId();
         ownerId.setActivationId(onboardingProcess.getActivationId());
         ownerId.setUserId(onboardingProcess.getUserId());

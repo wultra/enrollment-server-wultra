@@ -21,8 +21,7 @@ package com.wultra.app.onboardingserver.errorhandling;
 import com.wultra.app.onboardingserver.common.errorhandling.*;
 import io.getlime.core.rest.model.base.response.ErrorResponse;
 import io.getlime.security.powerauth.rest.api.spring.exception.PowerAuthAuthenticationException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -39,9 +38,8 @@ import javax.validation.ValidationException;
  * @author Petr Dvorak, petr@wultra.com
  */
 @ControllerAdvice
+@Slf4j
 public class DefaultExceptionHandler {
-
-    private final static Logger logger = LoggerFactory.getLogger(DefaultExceptionHandler.class);
 
     /**
      * Default exception handler, for unexpected errors.
@@ -223,19 +221,6 @@ public class DefaultExceptionHandler {
     public @ResponseBody ErrorResponse handleIdentityVerificationLimitException(IdentityVerificationLimitException ex) {
         logger.warn("Identity verification limit reached", ex);
         return new ErrorResponse("IDENTITY_VERIFICATION_LIMIT_REACHED", "Identity verification limit reached.");
-    }
-
-
-    /**
-     * Handling of presence check limit exceptions.
-     * @param ex Exception.
-     * @return Response with error details.
-     */
-    @ExceptionHandler(PresenceCheckLimitException.class)
-    @ResponseStatus(HttpStatus.TOO_MANY_REQUESTS)
-    public @ResponseBody ErrorResponse handlePresenceCheckLimitException(PresenceCheckLimitException ex) {
-        logger.warn("Presence check limit reached", ex);
-        return new ErrorResponse("PRESENCE_CHECK_LIMIT_REACHED", "Presence check limit reached.");
     }
 
     /**
