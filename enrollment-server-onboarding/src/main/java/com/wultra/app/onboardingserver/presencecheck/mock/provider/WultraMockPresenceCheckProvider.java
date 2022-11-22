@@ -45,6 +45,7 @@ public class WultraMockPresenceCheckProvider implements PresenceCheckProvider {
      * Session parameter name of the verification token
      */
     private static final String VERIFICATION_TOKEN = "mockVerificationToken";
+    private static final String SELFIE_FILENAME = "person_photo_from_mock.jpg";
 
     /**
      * Service constructor.
@@ -98,7 +99,7 @@ public class WultraMockPresenceCheckProvider implements PresenceCheckProvider {
         if (photo.getData() == null) {
             photo.setData(new byte[]{});
         }
-        photo.setFilename("selfie_photo.jpg");
+        photo.setFilename(SELFIE_FILENAME);
 
         PresenceCheckResult result = new PresenceCheckResult();
         result.setStatus(PresenceCheckStatus.ACCEPTED);

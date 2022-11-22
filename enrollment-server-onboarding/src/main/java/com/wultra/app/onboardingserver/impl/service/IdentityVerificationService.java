@@ -29,10 +29,7 @@ import com.wultra.app.enrollmentserver.model.integration.VerificationSdkInfo;
 import com.wultra.app.onboardingserver.common.database.DocumentDataRepository;
 import com.wultra.app.onboardingserver.common.database.DocumentVerificationRepository;
 import com.wultra.app.onboardingserver.common.database.IdentityVerificationRepository;
-import com.wultra.app.onboardingserver.common.database.entity.DocumentResultEntity;
-import com.wultra.app.onboardingserver.common.database.entity.DocumentVerificationEntity;
-import com.wultra.app.onboardingserver.common.database.entity.IdentityVerificationEntity;
-import com.wultra.app.onboardingserver.common.database.entity.OnboardingProcessEntity;
+import com.wultra.app.onboardingserver.common.database.entity.*;
 import com.wultra.app.onboardingserver.common.enumeration.OnboardingProcessError;
 import com.wultra.app.onboardingserver.common.errorhandling.*;
 import com.wultra.app.onboardingserver.common.service.AuditService;
@@ -190,7 +187,6 @@ public class IdentityVerificationService {
      * Submit identity-related documents for verification.
      * @param request Document submit request.
      * @param ownerId Owner identification.
-     * @return Document verification entities.
      * @throws DocumentSubmitException Thrown when document submission fails.
      * @throws IdentityVerificationLimitException Thrown when document upload limit is reached.
      * @throws RemoteCommunicationException Thrown when communication with PowerAuth server fails.
@@ -198,8 +194,7 @@ public class IdentityVerificationService {
      * @throws OnboardingProcessLimitException Thrown when maximum failed attempts for identity verification have been reached.
      * @throws OnboardingProcessException Thrown when onboarding process is invalid.
      */
-    public List<DocumentVerificationEntity> submitDocuments(DocumentSubmitRequest request,
-                                                            OwnerId ownerId)
+    public void submitDocuments(final DocumentSubmitRequest request, final OwnerId ownerId)
             throws DocumentSubmitException, IdentityVerificationLimitException, RemoteCommunicationException, IdentityVerificationException, OnboardingProcessLimitException, OnboardingProcessException {
 
         final IdentityVerificationEntity idVerification = findByOptional(ownerId).orElseThrow(() ->
@@ -219,12 +214,10 @@ public class IdentityVerificationService {
 
         identityVerificationLimitService.checkDocumentUploadLimit(ownerId, idVerification);
 
-        List<DocumentVerificationEntity> docsVerifications =
-                documentProcessingService.submitDocuments(idVerification, request, ownerId);
+        final List<DocumentVerificationEntity> docsVerifications = documentProcessingService.submitDocuments(idVerification, request, ownerId);
         documentProcessingService.pairTwoSidedDocuments(docsVerifications);
 
         identityVerificationRepository.save(idVerification);
-        return docsVerifications;
     }
 
     /**
@@ -262,16 +255,9 @@ public class IdentityVerificationService {
         final DocumentVerificationStatus status = result.getStatus();
         logger.info("Verified documents upload ID: {}, verification ID: {}, status: {}, {}", uploadIds, verificationId, status, ownerId);
         auditService.auditDocumentVerificationProvider(identityVerification, "Documents verified: {} for user: {}", status, ownerId.getUserId());
+        verificationProcessingService.processVerificationResult(ownerId, docVerifications, result);
 
-        moveToPhaseAndStatus(identityVerification, IdentityVerificationPhase.DOCUMENT_VERIFICATION, IdentityVerificationStatus.IN_PROGRESS, ownerId);
-
-        docVerifications.forEach(docVerification -> {
-            docVerification.setStatus(DocumentStatus.VERIFICATION_IN_PROGRESS);
-            docVerification.setVerificationId(verificationId);
-            docVerification.setTimestampLastUpdated(ownerId.getTimestamp());
-            auditService.auditDebug(docVerification, "Started document verification for user: {}", ownerId.getUserId());
-        });
-        documentVerificationRepository.saveAll(docVerifications);
+        moveToDocumentVerificationAndStatusByDocuments(identityVerification, docVerifications, ownerId);
 
         if (!identityVerificationConfig.isVerifySelfieWithDocumentsEnabled()) {
             logger.debug("Selfie photos verification disabled, changing selfie document status to ACCEPTED, {}", ownerId);
@@ -338,7 +324,7 @@ public class IdentityVerificationService {
             moveToPhaseAndStatus(idVerification, IdentityVerificationPhase.COMPLETED, ACCEPTED, ownerId);
         } else {
             logger.warn("Final validation did not pass, marking identity verification as failed due to '{}', {}", result.getErrorDetail(), ownerId);
-            idVerification.setErrorDetail(result.getErrorDetail());
+            idVerification.setErrorDetail(ErrorDetail.DOCUMENT_VERIFICATION_FAILED);
             idVerification.setTimestampFailed(ownerId.getTimestamp());
             idVerification.setErrorOrigin(ErrorOrigin.FINAL_VALIDATION);
             moveToPhaseAndStatus(idVerification, IdentityVerificationPhase.COMPLETED, FAILED, ownerId);
@@ -409,9 +395,9 @@ public class IdentityVerificationService {
 
     private static String fetchErrorDetail(final DocumentStatus status) {
         if (status == DocumentStatus.REJECTED) {
-            return IdentityVerificationEntity.DOCUMENT_VERIFICATION_REJECTED;
+            return ErrorDetail.DOCUMENT_VERIFICATION_REJECTED;
         } else if (status == DocumentStatus.FAILED) {
-            return IdentityVerificationEntity.DOCUMENT_VERIFICATION_FAILED;
+            return ErrorDetail.DOCUMENT_VERIFICATION_FAILED;
         } else {
             return "";
         }
