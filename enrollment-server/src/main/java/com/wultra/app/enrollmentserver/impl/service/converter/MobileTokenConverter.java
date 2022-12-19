@@ -25,15 +25,13 @@ import com.wultra.app.enrollmentserver.database.entity.OperationTemplateParam;
 import com.wultra.app.enrollmentserver.errorhandling.MobileTokenConfigurationException;
 import com.wultra.security.powerauth.client.model.enumeration.SignatureType;
 import com.wultra.security.powerauth.client.model.response.OperationDetailResponse;
-import com.wultra.security.powerauth.lib.mtoken.model.entity.AllowedSignatureType;
-import com.wultra.security.powerauth.lib.mtoken.model.entity.FormData;
-import com.wultra.security.powerauth.lib.mtoken.model.entity.Operation;
+import com.wultra.security.powerauth.lib.mtoken.model.entity.*;
 import com.wultra.security.powerauth.lib.mtoken.model.entity.attributes.*;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.text.StringSubstitutor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -46,9 +44,12 @@ import java.util.Map;
  * @author Petr Dvorak, petr@wultra.com
  */
 @Component
+@Slf4j
 public class MobileTokenConverter {
 
-    private static final Logger logger = LoggerFactory.getLogger(MobileTokenConverter.class);
+    private static final String RISK_FLAG_FLIP_BUTTONS = "X";
+    private static final String RISK_FLAG_BLOCK_APPROVAL_ON_CALL = "C";
+    private static final String RISK_FLAG_FRAUD_WARNING = "F";
 
     private final ObjectMapper objectMapper;
 
@@ -75,6 +76,15 @@ public class MobileTokenConverter {
         return allowedSignatureType;
     }
 
+    /**
+     * Convert operation detail from PowerAuth Server and operation template from Enrollment Server into an
+     * operation in API response.
+     *
+     * @param operationDetail Operation detail response obtained from PowerAuth Server.
+     * @param operationTemplate Operation template obtained from Enrollment Server.
+     * @return Operation for API response.
+     * @throws MobileTokenConfigurationException In case there is an error in configuration data.
+     */
     public Operation convert(OperationDetailResponse operationDetail, OperationTemplateEntity operationTemplate) throws MobileTokenConfigurationException {
         try {
             final Operation operation = new Operation();
@@ -85,6 +95,8 @@ public class MobileTokenConverter {
             operation.setOperationCreated(operationDetail.getTimestampCreated());
             operation.setOperationExpires(operationDetail.getTimestampExpires());
             operation.setStatus(operationDetail.getStatus().name());
+
+            operation.setUi(convertUiExtension(operationDetail, operationTemplate));
 
             // Prepare title and message with substituted attributes
             final FormData formData = new FormData();
@@ -100,13 +112,13 @@ public class MobileTokenConverter {
 
             final String attributes = operationTemplate.getAttributes();
             if (attributes != null) {
-                final OperationTemplateParam[] operationTemplateParams = objectMapper.readValue(
-                        attributes, OperationTemplateParam[].class
-                );
-                for (OperationTemplateParam templateParam : operationTemplateParams) {
-                    final Attribute attribute = buildAttribute(templateParam, parameters);
-                    if (attribute != null) {
-                        formData.getAttributes().add(attribute);
+                final OperationTemplateParam[] operationTemplateParams = objectMapper.readValue(attributes, OperationTemplateParam[].class);
+                if (operationTemplateParams != null) {
+                    for (OperationTemplateParam templateParam : operationTemplateParams) {
+                        final Attribute attribute = buildAttribute(templateParam, parameters);
+                        if (attribute != null) {
+                            formData.getAttributes().add(attribute);
+                        }
                     }
                 }
             }
@@ -120,14 +132,49 @@ public class MobileTokenConverter {
         }
     }
 
+    private UiExtensions convertUiExtension(final OperationDetailResponse operationDetail, final OperationTemplateEntity operationTemplate) throws JsonProcessingException {
+        if (StringUtils.hasText(operationTemplate.getUi())) {
+            final String uiJsonString = operationTemplate.getUi();
+            logger.debug("Deserializing ui: '{}' of OperationTemplate ID: {} to UiExtensions", uiJsonString, operationTemplate.getId());
+            return objectMapper.readValue(uiJsonString, UiExtensions.class);
+        } else if (StringUtils.hasText(operationDetail.getRiskFlags())) {
+            final String riskFlags = operationDetail.getRiskFlags();
+            logger.debug("Converting riskFlags: '{}' of OperationDetail ID: {} to UiExtensions", riskFlags, operationDetail.getId());
+            final UiExtensions ui = new UiExtensions();
+            if (riskFlags.contains(RISK_FLAG_FLIP_BUTTONS)) {
+                ui.setFlipButtons(true);
+            }
+            if (riskFlags.contains(RISK_FLAG_BLOCK_APPROVAL_ON_CALL)) {
+                ui.setBlockApprovalOnCall(true);
+            }
+            if (riskFlags.contains(RISK_FLAG_FRAUD_WARNING)) {
+                final PreApprovalScreen preApprovalScreen = new PreApprovalScreen();
+                preApprovalScreen.setType(PreApprovalScreen.ScreenType.WARNING);
+                ui.setPreApprovalScreen(preApprovalScreen);
+            }
+            return ui;
+        } else {
+            return null;
+        }
+    }
+
     private Attribute buildAttribute(OperationTemplateParam templateParam, Map<String, String> params) {
         final String type = templateParam.getType();
         final String id = templateParam.getId();
         final String text = templateParam.getText();
         switch (type) {
             case "AMOUNT": {
-                final String amountKey = templateParam.getParams().get("amount");
-                final String currencyKey = templateParam.getParams().get("currency");
+                final Map<String, String> templateParams = templateParam.getParams();
+                if (templateParams == null) {
+                    logger.warn("Params of OperationTemplateParam ID: {} is null", id);
+                    return null;
+                }
+                if (params == null) {
+                    logger.warn("Params of OperationDetailResponse is null");
+                    return null;
+                }
+                final String amountKey = templateParams.get("amount");
+                final String currencyKey = templateParams.get("currency");
                 final String amount = params.get(amountKey);
                 final String currency = params.get(currencyKey);
                 try {
@@ -142,7 +189,16 @@ public class MobileTokenConverter {
                 return new HeadingAttribute(id, text);
             }
             case "NOTE": {
-                final String noteKey = templateParam.getParams().get("note");
+                final Map<String, String> templateParams = templateParam.getParams();
+                if (templateParams == null) {
+                    logger.warn("Params of OperationTemplateParam ID: {} is null", id);
+                    return null;
+                }
+                if (params == null) {
+                    logger.warn("Params of OperationDetailResponse is null");
+                    return null;
+                }
+                final String noteKey = templateParams.get("note");
                 final String note = params.get(noteKey);
                 if (note == null) { // invalid element, does not contain note at all
                     return null;
@@ -150,7 +206,16 @@ public class MobileTokenConverter {
                 return new NoteAttribute(id, text, note);
             }
             case "KEY_VALUE": {
-                final String valueKey = templateParam.getParams().get("value");
+                final Map<String, String> templateParams = templateParam.getParams();
+                if (templateParams == null) {
+                    logger.warn("Params of OperationTemplateParam ID: {} is null", id);
+                    return null;
+                }
+                if (params == null) {
+                    logger.warn("Params of OperationDetailResponse is null");
+                    return null;
+                }
+                final String valueKey = templateParams.get("value");
                 final String value = params.get(valueKey);
                 if (value == null) { // invalid element, does not contain note at all
                     return null;
@@ -159,7 +224,16 @@ public class MobileTokenConverter {
             }
             default: { // attempt fallback to key-value type
                 logger.error("Invalid operation attribute type: {}", type);
-                final String valueKey = templateParam.getParams().get("value");
+                final Map<String, String> templateParams = templateParam.getParams();
+                if (templateParams == null) {
+                    logger.warn("Params of OperationTemplateParam ID: {} is null", id);
+                    return null;
+                }
+                if (params == null) {
+                    logger.warn("Params of OperationDetailResponse is null");
+                    return null;
+                }
+                final String valueKey = templateParams.get("value");
                 final String value = params.get(valueKey);
                 if (value == null) { // invalid element, does not contain note at all
                     return null;
