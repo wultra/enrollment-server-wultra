@@ -23,11 +23,11 @@ import com.wultra.app.onboardingserver.provider.model.request.*;
 import com.wultra.app.onboardingserver.provider.model.response.ApproveConsentResponse;
 import com.wultra.app.onboardingserver.provider.model.response.EvaluateClientResponse;
 import com.wultra.app.onboardingserver.provider.model.response.LookupUserResponse;
+import com.wultra.app.onboardingserver.provider.model.response.ProcessEventResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
-import reactor.core.publisher.Mono;
 
 import java.util.Locale;
 import java.util.Map;
@@ -100,5 +100,17 @@ public class MockOnboardingProvider implements OnboardingProvider {
         logger.info("Evaluating client for process ID: {}, user ID: {}, verification ID: {}, identityVerification ID: {}",
                 processId, userId, verificationId, identityVerificationId);
         return EvaluateClientResponse.builder().accepted(true).build();
+    }
+
+    @Override
+    public ProcessEventResponse processEvent(ProcessEventRequest request) {
+        final var type = request.getType();
+        final String processId = request.getProcessId();
+        final String userId = request.getUserId();
+        final String identityVerificationId = request.getIdentityVerificationId();
+
+        logger.info("Processing event type: {} for process ID: {}, user ID: {}, identityVerification ID: {}",
+                type, processId, userId, identityVerificationId);
+        return ProcessEventResponse.builder().build();
     }
 }
