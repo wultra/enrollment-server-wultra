@@ -108,9 +108,10 @@ public class MockOnboardingProvider implements OnboardingProvider {
         final String processId = request.getProcessId();
         final String userId = request.getUserId();
         final String identityVerificationId = request.getIdentityVerificationId();
+        final var eventData = request.getEventData().asMap();
 
-        logger.info("Processing event type: {} for process ID: {}, user ID: {}, identityVerification ID: {}",
-                type, processId, userId, identityVerificationId);
+        logger.info("Processing event type: {} for process ID: {}, user ID: {}, identityVerification ID: {}, data: {}",
+                type, processId, userId, identityVerificationId, eventData);
         return ProcessEventResponse.builder().build();
     }
 }
