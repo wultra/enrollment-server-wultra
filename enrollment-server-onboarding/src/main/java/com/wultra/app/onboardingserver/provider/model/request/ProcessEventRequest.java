@@ -23,6 +23,7 @@ import com.wultra.app.onboardingserver.provider.OnboardingProvider;
 import lombok.*;
 
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * Request object for {@link OnboardingProvider#processEvent(ProcessEventRequest)}.
@@ -49,7 +50,57 @@ public final class ProcessEventRequest {
     private EventType type;
 
     @NonNull
-    private Locale locale;
+    private EventData eventData;
+
+    public interface EventData {
+        /**
+         * Return data represented as a map.
+         *
+         * @return map
+         */
+        Map<String, Object> asMap();
+    }
+
+    /**
+     * Specialization fo {@link EventData} for {@link EventType#FINISHED}.
+     */
+    public interface FinishedEventData extends EventData {
+    }
+
+    /**
+     * Default implementation of {@link FinishedEventData}.
+     */
+    @Builder
+    @Getter
+    @ToString
+    @PublicApi
+    @EqualsAndHashCode
+    public static class DefaultFinishedEventData implements FinishedEventData {
+
+        @NonNull
+        private Locale locale;
+
+        @NonNull
+        private String httpUserAgent;
+
+        @NonNull
+        private String clientIPAddress;
+
+        /**
+         * Unique ID of the request
+         */
+        private String requestId;
+
+        @Override
+        public Map<String, Object> asMap() {
+            return Map.of(
+                    "language", locale.getLanguage(),
+                    "httpUserAgent", httpUserAgent,
+                    "clientIPAddress", clientIPAddress,
+                    "requestId", requestId
+            );
+        }
+    }
 
     public enum EventType {
         FINISHED

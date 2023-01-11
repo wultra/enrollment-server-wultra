@@ -34,6 +34,7 @@ The Enrollment Server uses the following public configuration properties:
 | Property | Default | Note |
 |---|---|---|
 | `enrollment-server.mtoken.enabled` | `true` | Publishing of Mobile Token endpoints can be enabled or disabled using this property. |
+| `enrollment-server.inbox.enabled` | `true` | Publishing of Inbox endpoints can be enabled or disabled using this property. |
 | `enrollment-server.activation-spawn.enabled` | `false` | The activation spawn functionality can be enabled or disabled using this property. |
 
 ## Correlation HTTP Header Configuration
