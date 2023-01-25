@@ -117,7 +117,7 @@ public class IdentityVerificationFinishService {
                 .userId(identityVerification.getUserId())
                 .processId(process.getId())
                 .identityVerificationId(identityVerification.getId())
-                .eventData(createBroadcomFinishEventData(process))
+                .eventData(createFinishEventData(process))
                 .build();
 
         try {
@@ -131,13 +131,14 @@ public class IdentityVerificationFinishService {
         }
     }
 
-    private static ProcessEventRequest.EventData createBroadcomFinishEventData(final OnboardingProcessEntity process) {
+    private static ProcessEventRequest.EventData createFinishEventData(final OnboardingProcessEntity process) {
         final OnboardingProcessEntityWrapper processWrapper = new OnboardingProcessEntityWrapper(process);
         return ProcessEventRequest.DefaultFinishedEventData.builder()
                 .locale(processWrapper.getLocale())
                 .clientIPAddress(processWrapper.getIpAddress())
                 .httpUserAgent(processWrapper.getUserAgent())
                 .requestId(UUID.randomUUID().toString())
+                .fdsData(processWrapper.getFdsData())
                 .build();
     }
 }
