@@ -6,7 +6,7 @@
       <env name="JDBC_DATABASE_USERNAME" value="powerauth" />
       <env name="JDBC_DATABASE_PASSWORD" value="" />
     </envs>
-    <module name="enrollment-server-onboarding" />
+    <module name="enrollment-server-onboarding-wultra" />
     <option name="SPRING_BOOT_MAIN_CLASS" value="com.wultra.app.onboardingserver.OnboardingServerApplication" />
     <option name="VM_PARAMETERS" value="-Dserver.servlet.context-path=/enrollment-server-onboarding -Dserver.port=8083" />
     <method v="2">
