@@ -26,13 +26,13 @@
 
     <groupId>com.wultra.security</groupId>
     <artifactId>enrollment-server-parent</artifactId>
-    <version>1.5.0-SNAPSHOT</version>
+    <version>1.4.2</version>
     <packaging>pom</packaging>
 
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>2.7.7</version>
+        <version>2.6.14</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
 
@@ -95,13 +95,13 @@
         <maven-swagger-codegen-plugin.version>3.0.34</maven-swagger-codegen-plugin.version>
         <maven-swagger-codegen-handlebars.version>4.3.0</maven-swagger-codegen-handlebars.version>
 
+        <h2.version>2.1.214</h2.version>
         <shedlock-spring.version>4.44.0</shedlock-spring.version>
         <spring-statemachine.version>3.2.0</spring-statemachine.version>
         <swagger-annotations.version>2.2.8</swagger-annotations.version>
         <springdoc-openapi.version>1.6.14</springdoc-openapi.version>
         <wultra-rest-client.version>1.6.0</wultra-rest-client.version>
         <wultra-audit.version>1.6.0</wultra-audit.version>
-        <wultra-http.version>1.7.0-SNAPSHOT</wultra-http.version>
         <powerauth-crypto.version>1.4.0</powerauth-crypto.version>
         <powerauth-restful-integration.version>1.4.0</powerauth-restful-integration.version>
         <powerauth-push.version>1.4.1</powerauth-push.version>
@@ -145,12 +145,6 @@
                 <groupId>io.getlime.core</groupId>
                 <artifactId>audit-base</artifactId>
                 <version>${wultra-audit.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.getlime.core</groupId>
-                <artifactId>http-common</artifactId>
-                <version>${wultra-http.version}</version>
             </dependency>
 
             <dependency>
