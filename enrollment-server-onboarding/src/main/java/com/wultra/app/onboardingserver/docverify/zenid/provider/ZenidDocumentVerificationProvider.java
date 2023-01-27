@@ -426,9 +426,9 @@ public class ZenidDocumentVerificationProvider implements DocumentVerificationPr
                         String.format("Different document side %s than expected %s", zenIdCardSide, cardSide)
                 );
             }
-        }        
+        }
     }
-    
+
     private void checkForMinedPhoto(OwnerId id,
                                     String documentId,
                                     DocumentsSubmitResult result,

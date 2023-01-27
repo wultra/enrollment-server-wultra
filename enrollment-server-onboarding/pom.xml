@@ -21,8 +21,8 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>enrollment-server-onboarding</artifactId>
-    <name>enrollment-server-onboarding</name>
+    <artifactId>enrollment-server-onboarding-wultra</artifactId>
+    <name>enrollment-server-onboarding-wultra</name>
     <description>Base implementation of the onboarding server.</description>
     <packaging>war</packaging>
 
