@@ -21,10 +21,10 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <name>enrollment-server</name>
+    <name>enrollment-server-wultra</name>
     <description>Base implementation of the enrollment server.</description>
 
-    <artifactId>enrollment-server</artifactId>
+    <artifactId>enrollment-server-wultra</artifactId>
     <packaging>war</packaging>
 
     <parent>
@@ -39,6 +39,11 @@
         <dependency>
             <groupId>com.wultra.security</groupId>
             <artifactId>enrollment-server-api-model</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.wultra.security</groupId>
+            <artifactId>enrollment-server-onboarding-common</artifactId>
             <version>${project.version}</version>
         </dependency>
 
