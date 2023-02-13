@@ -18,14 +18,16 @@
 package com.wultra.app.enrollmentserver.impl.service.converter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
 import com.wultra.app.enrollmentserver.database.entity.OperationTemplateEntity;
 import com.wultra.security.powerauth.client.model.enumeration.OperationStatus;
 import com.wultra.security.powerauth.client.model.enumeration.SignatureType;
 import com.wultra.security.powerauth.client.model.response.OperationDetailResponse;
 import com.wultra.security.powerauth.lib.mtoken.model.entity.*;
-import com.wultra.security.powerauth.lib.mtoken.model.entity.attributes.NoteAttribute;
+import com.wultra.security.powerauth.lib.mtoken.model.entity.attributes.*;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -345,6 +347,125 @@ class MobileTokenConverterTest {
                 .extracting(PostApprovalScreen::getPayload)
                 .isInstanceOf(GenericPostApprovalScreen.GenericPayload.class)
                 .returns(expectedPayload, from(it -> ((GenericPostApprovalScreen.GenericPayload) it).getProperties()));
+    }
+
+    @Test
+    void testConvertAttributes() throws Exception {
+        final OperationDetailResponse operationDetail = createOperationDetailResponse();
+        operationDetail.setParameters(ImmutableMap.<String, String>builder()
+                .put("amount", "13.7")
+                .put("currency", "EUR")
+                .put("iban", "AT483200000012345864")
+                .put("note", "Remember me")
+                .put("thumbnailUrl", "https://example.com/123_thumb.jpeg")
+                .put("originalUrl", "https://example.com/123.jpeg")
+                .put("sourceAmount", "1.26")
+                .put("sourceCurrency", "ETC")
+                .put("targetAmount", "1710.98")
+                .put("targetCurrency", "USD")
+                .put("dynamic", "true")
+                .put("partyLogoUrl", "https://example.com/img/logo/logo.svg")
+                .put("partyName", "Example Ltd.")
+                .put("partyDescription", "Find out more about Example...")
+                .put("partyUrl", "https://example.com/hello")
+                .build());
+
+        final OperationTemplateEntity operationTemplate = new OperationTemplateEntity();
+        operationTemplate.setAttributes("[\n" +
+                "  {\n" +
+                "    \"id\": \"operation.amount\",\n" +
+                "    \"type\": \"AMOUNT\",\n" +
+                "    \"text\": \"Amount\",\n" +
+                "    \"params\": {\n" +
+                "      \"amount\": \"amount\",\n" +
+                "      \"currency\": \"currency\"\n" +
+                "    }\n" +
+                "  },\n" +
+                "  {\n" +
+                "    \"id\": \"operation.account\",\n" +
+                "    \"type\": \"KEY_VALUE\",\n" +
+                "    \"text\": \"To Account\",\n" +
+                "    \"params\": {\n" +
+                "      \"value\": \"iban\"\n" +
+                "    }\n" +
+                "  },\n" +
+                "  {\n" +
+                "    \"id\": \"operation.note\",\n" +
+                "    \"type\": \"NOTE\",\n" +
+                "    \"text\": \"Note\",\n" +
+                "    \"params\": {\n" +
+                "      \"note\": \"note\"\n" +
+                "    }\n" +
+                "  },\n" +
+                "  {\n" +
+                "    \"id\": \"operation.heading\",\n" +
+                "    \"type\": \"HEADING\",\n" +
+                "    \"text\": \"Heading\"\n" +
+                "  },\n" +
+                "  {\n" +
+                "    \"id\": \"operation.image\",\n" +
+                "    \"type\": \"IMAGE\",\n" +
+                "    \"text\": \"Image\",\n" +
+                "    \"params\": {\n" +
+                "      \"thumbnailUrl\": \"thumbnailUrl\",\n" +
+                "      \"originalUrl\": \"originalUrl\"\n" +
+                "    }\n" +
+                "  },\n" +
+                "  {\n" +
+                "    \"id\": \"operation.amountConversion\",\n" +
+                "    \"type\": \"AMOUNT_CONVERSION\",\n" +
+                "    \"text\": \"Amount Conversion\",\n" +
+                "    \"params\": {\n" +
+                "      \"dynamic\": \"dynamic\",\n" +
+                "      \"sourceAmount\": \"sourceAmount\",\n" +
+                "      \"sourceCurrency\": \"sourceCurrency\",\n" +
+                "      \"targetAmount\": \"targetAmount\",\n" +
+                "      \"targetCurrency\": \"targetCurrency\"\n" +
+                "    }\n" +
+                "  },\n" +
+                "  {\n" +
+                "    \"id\": \"operation.partyInfo\",\n" +
+                "    \"type\": \"PARTY_INFO\",\n" +
+                "    \"text\": \"Party Info\",\n" +
+                "    \"params\": {\n" +
+                "      \"logoUrl\": \"partyLogoUrl\",\n" +
+                "      \"name\": \"partyName\",\n" +
+                "      \"description\": \"partyDescription\",\n" +
+                "      \"websiteUrl\": \"partyUrl\"\n" +
+                "    }\n" +
+                "  }\n" +
+                "]");
+
+        final Operation result = tested.convert(operationDetail, operationTemplate);
+
+        final List<Attribute> attributes = result.getFormData().getAttributes();
+
+        assertEquals(7, attributes.size());
+        final var atributesIterator = attributes.iterator();
+        assertEquals(new AmountAttribute("operation.amount", "Amount", new BigDecimal("13.7"), "EUR", "13.7", "EUR"), atributesIterator.next());
+        assertEquals(new KeyValueAttribute("operation.account", "To Account", "AT483200000012345864"), atributesIterator.next());
+        assertEquals(new NoteAttribute("operation.note", "Note", "Remember me"), atributesIterator.next());
+        assertEquals(new HeadingAttribute("operation.heading", "Heading"), atributesIterator.next());
+        assertEquals(new ImageAttribute("operation.image", "Image", "https://example.com/123_thumb.jpeg", "https://example.com/123.jpeg"), atributesIterator.next());
+        assertEquals(AmountConversionAttribute.builder()
+                .id("operation.amountConversion")
+                .label("Amount Conversion")
+                .dynamic(true)
+                .sourceAmount(new BigDecimal("1.26"))
+                .sourceAmountFormatted("1.26")
+                .sourceCurrency("ETC")
+                .sourceCurrencyFormatted("ETC")
+                .targetAmount(new BigDecimal("1710.98"))
+                .targetAmountFormatted("1710.98")
+                .targetCurrency("USD")
+                .targetCurrencyFormatted("USD")
+                .build(), atributesIterator.next());
+        assertEquals(new PartyAttribute("operation.partyInfo", "Party Info", PartyInfo.builder()
+                        .logoUrl("https://example.com/img/logo/logo.svg")
+                        .name("Example Ltd.")
+                        .description("Find out more about Example...")
+                        .websiteUrl("https://example.com/hello")
+                        .build()), atributesIterator.next());
     }
 
     private static OperationDetailResponse createOperationDetailResponse() {
