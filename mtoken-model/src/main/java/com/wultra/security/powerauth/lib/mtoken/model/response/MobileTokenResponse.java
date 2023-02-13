@@ -1,6 +1,6 @@
 /*
  * PowerAuth Mobile Token Model
- * Copyright (C) 2017 Wultra s.r.o.
+ * Copyright (C) 2023 Wultra s.r.o.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -15,41 +15,34 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.wultra.security.powerauth.lib.mtoken.model.entity.attributes;
+package com.wultra.security.powerauth.lib.mtoken.model.response;
 
+import io.getlime.core.rest.model.base.response.ObjectResponse;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.util.Date;
+
 /**
- * Attribute representing a key-value item, where key and value are displayed
- * below each other, with value that can extend over multiple lines.
+ * Base response object extended with information required for mobile token.
  *
  * @author Petr Dvorak, petr@wultra.com
  */
 @Data
 @EqualsAndHashCode(callSuper = true)
-public class NoteAttribute extends Attribute {
+public class MobileTokenResponse<T> extends ObjectResponse<T> {
 
-    private String note;
-
-    /**
-     * Default constructor.
-     */
-    public NoteAttribute() {
-        super(Type.NOTE);
-    }
+    private Date currentTimestamp;
 
     /**
-     * Constructor with all details.
-     * @param id Attribute ID.
-     * @param label Attribute label.
-     * @param note Note.
+     * Constructor with response object and current timestamp.
+     *
+     * @param responseObject Response object.
+     * @param timestamp The timestamp to be set as current timestamp.
      */
-    public NoteAttribute(String id, String label, String note) {
-        this();
-        this.id = id;
-        this.label = label;
-        this.note = note;
+    public MobileTokenResponse(T responseObject, Date timestamp) {
+        super(responseObject);
+        this.currentTimestamp = timestamp;
     }
 
 }
