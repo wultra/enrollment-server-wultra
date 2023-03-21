@@ -37,6 +37,17 @@ The Enrollment Server uses the following public configuration properties:
 | `enrollment-server.inbox.enabled` | `true` | Publishing of Inbox endpoints can be enabled or disabled using this property. |
 | `enrollment-server.activation-spawn.enabled` | `false` | The activation spawn functionality can be enabled or disabled using this property. |
 
+## UserInfoProvider Configuration
+
+| Property                                                                          | Default   | Note                                                                                                                    |
+|-----------------------------------------------------------------------------------|-----------|-------------------------------------------------------------------------------------------------------------------------|
+| `enrollment-server.user-info.minimal-provider.enabled`                            | `false`   | Whether to register minimal claims provider. Must not be set to `true` when `rest-provider.enabled` set also to `true`. |
+| `enrollment-server.user-info.rest-provider.enabled`                               | `false`   | Whether to register REST provider. Must not be set to `true` when `minimal-provider.enabled` set also to `true`.        |
+| `enrollment-server.user-info.rest-provider.restClientConfig.baseUrl`              | `_empty_` | Base URL of user-info storage.                                                                                          |
+| `enrollment-server.user-info.rest-provider.restClientConfig.httpBasicAuthEnabled` | `false`   | Whether Basic authentication enabled.                                                                                   |
+| `enrollment-server.user-info.rest-provider.restClientConfig.httpBasicUsername`    | `_empty_` | Basic authentication username.                                                                                          |
+| `enrollment-server.user-info.rest-provider.restClientConfig.httpBasicPassword`    | `_empty_` | Basic authentication password.                                                                                          |
+
 ## Correlation HTTP Header Configuration
 
 | Property | Default | Note |
@@ -44,4 +55,9 @@ The Enrollment Server uses the following public configuration properties:
 | `powerauth.service.correlation-header.enabled` | `false` | Whether correlation header is enabled |
 | `powerauth.service.correlation-header.name` | `X-Correlation-ID` | Correlation header name |
 | `powerauth.service.correlation-header.value.validation-regexp` | `[a-zA-Z0-9\\-]{8,1024}` | Regular expression for correlation header value validation |
-| `logging.pattern.console` | [See application.properties](https://github.com/wultra/enrollment-server/blob/develop/enrollment-server/src/main/resources/application.properties#L160) | Logging pattern for console which includes the correlation header value |
+| `logging.pattern.console` | `_disabled_` | Logging pattern for console which includes the correlation header value |
+
+Sample setting of logging pattern:
+```properties
+logging.pattern.console=%clr(%d{${LOG_DATEFORMAT_PATTERN:yyyy-MM-dd HH:mm:ss.SSS}}){faint} %clr(${LOG_LEVEL_PATTERN:%5p}) [%X{X-Correlation-ID}] %clr(%5p) %clr(${PID: }){magenta} %clr(---){faint}%clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n${LOG_EXCEPTION_CONVERSION_WORD:%wEx}
+```
