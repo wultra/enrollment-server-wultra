@@ -20,8 +20,9 @@ package com.wultra.app.enrollmentserver.mock;
 
 import com.wultra.app.enrollmentserver.impl.service.DelegatingActivationCodeHandler;
 import com.wultra.security.powerauth.client.PowerAuthClient;
+import com.wultra.security.powerauth.client.model.entity.Application;
 import com.wultra.security.powerauth.client.model.error.PowerAuthClientException;
-import com.wultra.security.powerauth.client.v3.GetApplicationListResponse;
+import com.wultra.security.powerauth.client.model.response.GetApplicationListResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -50,11 +51,11 @@ public class MockActivationCodeHandler implements DelegatingActivationCodeHandle
     public String fetchDestinationApplicationId(String applicationId, String sourceAppId, List<String> activationFlags, List<String> applicationRoles) {
         logger.info("Destination application ID requested in activation code handler for application: {}, source application ID: {}", applicationId, sourceAppId);
         try {
-            List<GetApplicationListResponse.Applications> appList = powerAuthClient.getApplicationList();
-            for (GetApplicationListResponse.Applications app : appList) {
-                if (app.getApplicationId().equals(applicationId)) {
-                    logger.info("Destination application ID was resolved: {}", app.getApplicationId());
-                    return app.getApplicationId();
+            final GetApplicationListResponse response = powerAuthClient.getApplicationList();
+            for (Application application : response.getApplications()) {
+                if (application.getApplicationId().equals(applicationId)) {
+                    logger.info("Destination application ID was resolved: {}", application.getApplicationId());
+                    return application.getApplicationId();
                 }
             }
         } catch (PowerAuthClientException ex) {
