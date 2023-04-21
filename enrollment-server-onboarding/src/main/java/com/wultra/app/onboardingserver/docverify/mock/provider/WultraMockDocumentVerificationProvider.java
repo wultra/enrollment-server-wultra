@@ -26,7 +26,6 @@ import com.wultra.app.enrollmentserver.model.integration.*;
 import com.wultra.app.onboardingserver.common.database.entity.DocumentResultEntity;
 import com.wultra.app.onboardingserver.common.database.entity.DocumentVerificationEntity;
 import com.wultra.app.onboardingserver.docverify.mock.MockConst;
-import com.wultra.app.onboardingserver.errorhandling.DocumentVerificationException;
 import com.wultra.app.onboardingserver.provider.DocumentVerificationProvider;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -38,8 +37,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-
-import static java.util.stream.Collectors.toList;
 
 /**
  * Mock implementation of the {@link DocumentVerificationProvider}
@@ -104,7 +101,7 @@ public class WultraMockDocumentVerificationProvider implements DocumentVerificat
     public DocumentsSubmitResult submitDocuments(OwnerId id, List<SubmittedDocument> documents) {
         final List<DocumentSubmitResult> submitResults = documents.stream()
                 .map(this::toDocumentSubmitResult)
-                .collect(toList());
+                .toList();
 
         final DocumentsSubmitResult result = new DocumentsSubmitResult();
         if (documents.stream().anyMatch(doc -> DOCUMENT_TYPES_WITH_EXTRACTED_PHOTO.contains(doc.getType()))) {
@@ -159,7 +156,7 @@ public class WultraMockDocumentVerificationProvider implements DocumentVerificat
 
         final List<DocumentVerificationResult> verificationResults = uploadIds.stream()
                 .map(WultraMockDocumentVerificationProvider::createDocumentVerificationResult)
-                .collect(toList());
+                .toList();
 
         result.setResults(verificationResults);
         result.setStatus(DocumentVerificationStatus.ACCEPTED);
@@ -177,7 +174,7 @@ public class WultraMockDocumentVerificationProvider implements DocumentVerificat
     }
 
     @Override
-    public Image getPhoto(String photoId) throws DocumentVerificationException {
+    public Image getPhoto(String photoId) {
         Image photo = new Image();
         photo.setData(new byte[]{});
         photo.setFilename("id_photo.jpg");
