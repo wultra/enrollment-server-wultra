@@ -165,6 +165,7 @@ class MobileTokenConverterTest {
 
         final PreApprovalScreen preApprovalScreen = ui.getPreApprovalScreen();
         assertEquals(PreApprovalScreen.ScreenType.WARNING, preApprovalScreen.getType());
+        assertEquals(PreApprovalScreen.ApprovalType.SLIDER, preApprovalScreen.getApprovalType());
     }
 
     @Test
@@ -451,7 +452,15 @@ class MobileTokenConverterTest {
 
         assertEquals(7, attributes.size());
         final var atributesIterator = attributes.iterator();
-        assertEquals(new AmountAttribute("operation.amount", "Amount", new BigDecimal("13.7"), "EUR", "13.70", "€"), atributesIterator.next());
+        assertEquals(AmountAttribute.builder()
+                .id("operation.amount")
+                .label("Amount")
+                .amount(new BigDecimal("13.7"))
+                .amountFormatted("13.70")
+                .currency("EUR")
+                .currencyFormatted("€")
+                .valueFormatted("€13.70")
+                .build(), atributesIterator.next());
         assertEquals(new KeyValueAttribute("operation.account", "To Account", "AT483200000012345864"), atributesIterator.next());
         assertEquals(new NoteAttribute("operation.note", "Note", "Remember me"), atributesIterator.next());
         assertEquals(new HeadingAttribute("operation.heading", "Heading"), atributesIterator.next());
@@ -464,10 +473,12 @@ class MobileTokenConverterTest {
                 .sourceAmountFormatted("1.26")
                 .sourceCurrency("ETH")
                 .sourceCurrencyFormatted("ETH")
+                .sourceValueFormatted("1.26 ETH")
                 .targetAmount(new BigDecimal("1710.98"))
                 .targetAmountFormatted("1,710.98")
                 .targetCurrency("USD")
                 .targetCurrencyFormatted("$")
+                .targetValueFormatted("$1,710.98")
                 .build(), atributesIterator.next());
         assertEquals(new PartyAttribute("operation.partyInfo", "Party Info", PartyInfo.builder()
                         .logoUrl("https://example.com/img/logo/logo.svg")
@@ -504,6 +515,56 @@ class MobileTokenConverterTest {
         assertEquals(1, attributes.size());
         final Attribute imageAttribute = attributes.iterator().next();
         assertEquals(new ImageAttribute("operation.image", "Image", "https://example.com/123_thumb.jpeg", null), imageAttribute);
+    }
+
+    @Test
+    void testConvertUiPreapprovalScanQr() throws Exception {
+        final OperationDetailResponse operationDetail = createOperationDetailResponse();
+        operationDetail.setProximityOtp("1234");
+
+        final OperationTemplateEntity operationTemplate = new OperationTemplateEntity();
+        operationTemplate.setUi("""
+                {
+                  "preApprovalScreen": {
+                    "type": "QR_SCAN",
+                    "heading": "Scan the QR code!",
+                    "message": "You may become a victim of an attack."
+                  }
+                }""");
+
+        final Operation result = tested.convert(operationDetail, operationTemplate);
+
+        assertNotNull(result.getUi());
+
+        final UiExtensions ui = result.getUi();
+        assertNotNull(ui.getPreApprovalScreen());
+
+        final PreApprovalScreen preApprovalScreen = ui.getPreApprovalScreen();
+        assertEquals(PreApprovalScreen.ScreenType.QR_SCAN, preApprovalScreen.getType());
+        assertEquals("Scan the QR code!", preApprovalScreen.getHeading());
+        assertEquals("You may become a victim of an attack.", preApprovalScreen.getMessage());
+    }
+
+    @Test
+    void testConvertUiPreapprovalScanQrSuppressed() throws Exception {
+        final OperationDetailResponse operationDetail = createOperationDetailResponse();
+
+        final OperationTemplateEntity operationTemplate = new OperationTemplateEntity();
+        operationTemplate.setUi("""
+                {
+                  "preApprovalScreen": {
+                    "type": "QR_SCAN",
+                    "heading": "Scan the QR code!",
+                    "message": "You may become a victim of an attack."
+                  }
+                }""");
+
+        final Operation result = tested.convert(operationDetail, operationTemplate);
+
+        assertNotNull(result.getUi());
+
+        final UiExtensions ui = result.getUi();
+        assertNull(ui.getPreApprovalScreen());
     }
 
     private static OperationDetailResponse createOperationDetailResponse() {
