@@ -160,7 +160,7 @@ public class MobileTokenConverter {
         if (StringUtils.hasText(operationTemplate.getUi())) {
             final String uiJsonString = substitutor == null ? operationTemplate.getUi() : substitutor.replace(operationTemplate.getUi());
             logger.debug("Deserializing ui: '{}' of OperationTemplate ID: {} to UiExtensions", uiJsonString, operationTemplate.getId());
-            return objectMapper.readValue(uiJsonString, UiExtensions.class);
+            return deserializeUiExtensions(uiJsonString, operationDetail);
         } else if (StringUtils.hasText(operationDetail.getRiskFlags())) {
             final String riskFlags = operationDetail.getRiskFlags();
             logger.debug("Converting riskFlags: '{}' of OperationDetail ID: {} to UiExtensions", riskFlags, operationDetail.getId());
@@ -174,12 +174,25 @@ public class MobileTokenConverter {
             if (riskFlags.contains(RISK_FLAG_FRAUD_WARNING)) {
                 final PreApprovalScreen preApprovalScreen = new PreApprovalScreen();
                 preApprovalScreen.setType(PreApprovalScreen.ScreenType.WARNING);
+                preApprovalScreen.setApprovalType(PreApprovalScreen.ApprovalType.SLIDER);
                 ui.setPreApprovalScreen(preApprovalScreen);
             }
             return ui;
         } else {
             return null;
         }
+    }
+
+    private UiExtensions deserializeUiExtensions(final String uiJsonString, final OperationDetailResponse operationDetail) throws JsonProcessingException {
+        final UiExtensions uiExtensions = objectMapper.readValue(uiJsonString, UiExtensions.class);
+        if (uiExtensions.getPreApprovalScreen() != null
+                && uiExtensions.getPreApprovalScreen().getType() == PreApprovalScreen.ScreenType.QR_SCAN
+                && operationDetail.getProximityOtp() == null) {
+
+            logger.info("Template for operation ID: {} is configured to use pre-approval screen QR_SCAN, but OTP was not created", operationDetail.getId());
+            uiExtensions.setPreApprovalScreen(null);
+        }
+        return uiExtensions;
     }
 
     private static Optional<Attribute> buildAttribute(final OperationTemplateParam templateParam, final Map<String, String> params) {
@@ -242,7 +255,16 @@ public class MobileTokenConverter {
         final String currencyRaw = currency.get();
         final String currencyFormatted = MonetaryConverter.formatCurrency(currencyRaw, locale);
         final String amountFormatted = MonetaryConverter.formatAmount(amountRaw, currencyRaw, locale);
-        return Optional.of(new AmountAttribute(id, text, amountRaw, currencyRaw, amountFormatted, currencyFormatted));
+        final String valueFormatted = MonetaryConverter.formatValue(amountRaw, currencyRaw, locale);
+        return Optional.of(AmountAttribute.builder()
+                .id(id)
+                .label(text)
+                .amount(amountRaw)
+                .amountFormatted(amountFormatted)
+                .currency(currencyRaw)
+                .currencyFormatted(currencyFormatted)
+                .valueFormatted(valueFormatted)
+                .build());
     }
 
     private static Optional<Attribute> buildAmountConversionAttribute(final OperationTemplateParam templateParam, final Map<String, String> params) {
@@ -275,11 +297,13 @@ public class MobileTokenConverter {
 
         final Locale locale = LocaleContextHolder.getLocale();
         final String sourceCurrencyRaw = sourceCurrency.get();
-        final String targetCurrencyRaw = targetCurrency.get();
         final String sourceCurrencyFormatted = MonetaryConverter.formatCurrency(sourceCurrencyRaw, locale);
-        final String targetCurrencyFormatted = MonetaryConverter.formatCurrency(targetCurrencyRaw, locale);
         final String sourceAmountFormatted = MonetaryConverter.formatAmount(sourceAmountRaw, sourceCurrencyRaw, locale);
+        final String sourceValueFormatted = MonetaryConverter.formatValue(sourceAmountRaw, sourceCurrencyRaw, locale);
+        final String targetCurrencyRaw = targetCurrency.get();
+        final String targetCurrencyFormatted = MonetaryConverter.formatCurrency(targetCurrencyRaw, locale);
         final String targetAmountFormatted = MonetaryConverter.formatAmount(targetAmountRaw, targetCurrencyRaw, locale);
+        final String targetValueFormatted = MonetaryConverter.formatValue(targetAmountRaw, targetCurrencyRaw, locale);
         return Optional.of(AmountConversionAttribute.builder()
                 .id(id)
                 .label(text)
@@ -288,10 +312,12 @@ public class MobileTokenConverter {
                 .sourceAmountFormatted(sourceAmountFormatted)
                 .sourceCurrency(sourceCurrencyRaw)
                 .sourceCurrencyFormatted(sourceCurrencyFormatted)
+                .sourceValueFormatted(sourceValueFormatted)
                 .targetAmount(targetAmountRaw)
                 .targetAmountFormatted(targetAmountFormatted)
                 .targetCurrency(targetCurrencyRaw)
                 .targetCurrencyFormatted(targetCurrencyFormatted)
+                .targetValueFormatted(targetValueFormatted)
                 .build());
     }
 
