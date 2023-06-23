@@ -25,6 +25,7 @@ import com.wultra.core.rest.client.base.DefaultRestClient;
 import com.wultra.core.rest.client.base.RestClient;
 import com.wultra.core.rest.client.base.RestClientConfiguration;
 import com.wultra.core.rest.client.base.RestClientException;
+import io.netty.channel.ChannelOption;
 import lombok.extern.slf4j.Slf4j;
 import net.minidev.json.JSONObject;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -32,6 +33,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.security.oauth2.client.AuthorizedClientServiceReactiveOAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.ClientCredentialsReactiveOAuth2AuthorizedClientProvider;
 import org.springframework.security.oauth2.client.InMemoryReactiveOAuth2AuthorizedClientService;
@@ -49,9 +51,14 @@ import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.util.UriComponentsBuilder;
+import reactor.netty.http.client.HttpClient;
+import reactor.netty.resources.ConnectionProvider;
 
+import java.time.Duration;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * iProov configuration.
@@ -101,9 +108,7 @@ public class IProovConfig {
         final ServerOAuth2AuthorizedClientExchangeFilterFunction oAuth2ExchangeFilterFunction = new ServerOAuth2AuthorizedClientExchangeFilterFunction(authorizedClientManager);
         oAuth2ExchangeFilterFunction.setDefaultClientRegistrationId(OAUTH_REGISTRATION_ID);
 
-        return WebClient.builder()
-                .filter(oAuth2ExchangeFilterFunction)
-                .build();
+        return createWebClient(oAuth2ExchangeFilterFunction, configProps, "user management client");
     }
 
     private static AuthorizedClientServiceReactiveOAuth2AuthorizedClientManager authorizedClientServiceReactiveOAuth2AuthorizedClientManager(final IProovConfigProps configProps) {
@@ -124,7 +129,7 @@ public class IProovConfig {
         final ReactiveOAuth2AuthorizedClientService clientService = new InMemoryReactiveOAuth2AuthorizedClientService(clientRegistrations);
 
         final ClientCredentialsReactiveOAuth2AuthorizedClientProvider authorizedClientProvider = new ClientCredentialsReactiveOAuth2AuthorizedClientProvider();
-        authorizedClientProvider.setAccessTokenResponseClient(accessTokenResponseClient());
+        authorizedClientProvider.setAccessTokenResponseClient(accessTokenResponseClient(configProps));
 
         final AuthorizedClientServiceReactiveOAuth2AuthorizedClientManager authorizedClientManager =
                 new AuthorizedClientServiceReactiveOAuth2AuthorizedClientManager(clientRegistrations, clientService);
@@ -133,28 +138,55 @@ public class IProovConfig {
     }
 
     // TODO (racansky, 2023-06-05) remove when iProov fix API according the RFC
-    private static ReactiveOAuth2AccessTokenResponseClient<OAuth2ClientCredentialsGrantRequest> accessTokenResponseClient() {
+    private static ReactiveOAuth2AccessTokenResponseClient<OAuth2ClientCredentialsGrantRequest> accessTokenResponseClient(final IProovConfigProps configProps) {
         @SuppressWarnings("unchecked")
         final ExchangeFilterFunction tokenResponseFilter = ExchangeFilterFunction.ofResponseProcessor(response -> {
-            final ClientResponse.Builder builder = response.mutate();
-            return response.bodyToMono(Map.class).map(map -> {
-                if (map.containsKey(AuthTokenResponse.JSON_PROPERTY_SCOPE)) {
-                    logger.debug("Removing scope because does not comply with RFC and not needed anyway");
-                    map.remove(AuthTokenResponse.JSON_PROPERTY_SCOPE);
-                    return builder.body(JSONObject.toJSONString(map)).build();
-                } else {
-                    return builder.build();
-                }
-            });
+        final ClientResponse.Builder builder = response.mutate();
+        return response.bodyToMono(Map.class).map(map -> {
+                    logger.trace("Got access token");
+                    if (map.containsKey(AuthTokenResponse.JSON_PROPERTY_SCOPE)) {
+                        logger.debug("Removing scope because does not comply with RFC and not needed anyway");
+                        map.remove(AuthTokenResponse.JSON_PROPERTY_SCOPE);
+                        return builder.body(JSONObject.toJSONString(map)).build();
+                    } else {
+                        return builder.build();
+                    }
+                })
+                .doOnError(e -> {
+                    if (e instanceof final WebClientResponseException exception) {
+                        logger.error("Get access token - Error response body: {}", exception.getResponseBodyAsString());
+                    } else {
+                        logger.error("Get access token - Error", e);
+                    }
+                });
         });
 
-        final WebClient webClient = WebClient.builder()
-                .filter(tokenResponseFilter)
-                .build();
+        final WebClient webClient = createWebClient(tokenResponseFilter, configProps, "oAuth client");
 
         final AbstractWebClientReactiveOAuth2AccessTokenResponseClient<OAuth2ClientCredentialsGrantRequest> accessTokenResponseClient = new WebClientReactiveClientCredentialsTokenResponseClient();
         accessTokenResponseClient.setWebClient(webClient);
         return accessTokenResponseClient;
+    }
+
+    private static WebClient createWebClient(final ExchangeFilterFunction filter, IProovConfigProps configProps, final String logContext) {
+        final RestClientConfiguration restClientConfig = configProps.getRestClientConfig();
+        final Integer connectionTimeout = restClientConfig.getConnectionTimeout();
+        final Duration responseTimeout = restClientConfig.getResponseTimeout();
+        final Duration maxIdleTime = Objects.requireNonNull(restClientConfig.getMaxIdleTime(), "maxIdleTime must be specified");
+        logger.info("Setting {} connectionTimeout: {}, responseTimeout: {}, maxIdleTime: {}", logContext, connectionTimeout, responseTimeout, maxIdleTime);
+
+        final ConnectionProvider connectionProvider = ConnectionProvider.builder("custom")
+                .maxIdleTime(maxIdleTime)
+                .build();
+        final HttpClient httpClient = HttpClient.create(connectionProvider)
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, connectionTimeout)
+                .responseTimeout(responseTimeout);
+        final ReactorClientHttpConnector connector = new ReactorClientHttpConnector(httpClient);
+
+        return WebClient.builder()
+                .clientConnector(connector)
+                .filter(filter)
+                .build();
     }
 
 }
