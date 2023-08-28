@@ -27,6 +27,7 @@ import com.wultra.app.enrollmentserver.api.model.onboarding.request.*;
 import com.wultra.app.enrollmentserver.api.model.onboarding.response.OnboardingConsentTextResponse;
 import com.wultra.app.enrollmentserver.api.model.onboarding.response.OnboardingStartResponse;
 import com.wultra.app.enrollmentserver.api.model.onboarding.response.OnboardingStatusResponse;
+import com.wultra.app.enrollmentserver.api.model.onboarding.response.data.ConfigurationDataDto;
 import com.wultra.app.enrollmentserver.model.enumeration.ErrorOrigin;
 import com.wultra.app.enrollmentserver.model.enumeration.OnboardingStatus;
 import com.wultra.app.enrollmentserver.model.enumeration.OtpType;
@@ -84,6 +85,11 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
 
     private final ActivationService activationService;
 
+    /**
+     * Configuration data for client integration
+     */
+    private final ConfigurationDataDto integrationConfigDto;
+
     // Special instance of ObjectMapper for normalized serialization of identification data
     private final ObjectMapper normalizedMapper = JsonMapper
             .builder()
@@ -121,6 +127,9 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
         this.otpService = otpService;
         this.activationService = activationService;
         this.onboardingProvider = onboardingProvider;
+        this.integrationConfigDto = ConfigurationDataDto.builder()
+                .otpResendPeriod(onboardingConfig.getOtpResendPeriod().toString())
+                .otpResendPeriodSeconds(onboardingConfig.getOtpResendPeriod().toSeconds()).build();
     }
 
     /**
@@ -175,6 +184,7 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
         OnboardingStartResponse response = new OnboardingStartResponse();
         response.setProcessId(process.getId());
         response.setOnboardingStatus(process.getStatus());
+        response.setConfig(integrationConfigDto);
         return response;
     }
 
@@ -223,6 +233,7 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
         }
 
         response.setOnboardingStatus(process.getStatus());
+        response.setConfig(integrationConfigDto);
         return response;
     }
 
@@ -358,8 +369,14 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
 
         try {
             final ApproveConsentResponse response = onboardingProvider.approveConsent(providerRequest);
-            auditService.auditOnboardingProvider(process, "Approve consent text for user: {}", userId);
             logger.debug("Got {} for processId={}", response, request.getProcessId());
+            if (response.isErrorOccurred()) {
+                final String errorDetail = response.getErrorDetail();
+                auditService.auditOnboardingProvider(process, "Consent text approval failed for user: {}, error: {}", userId, errorDetail);
+                throw new OnboardingProcessException("Consent text approval failed for process: %s, user: %s, error: %s"
+                        .formatted(process.getId(), userId, errorDetail));
+            }
+            auditService.auditOnboardingProvider(process, "Approve consent text for user: {}", userId);
         } catch (OnboardingProviderException e) {
             throw new OnboardingProcessException("An error when approving consent.", e);
         }

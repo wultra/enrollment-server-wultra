@@ -28,10 +28,10 @@ import com.wultra.app.onboardingserver.mock.model.request.OtpDetailRequest;
 import com.wultra.app.onboardingserver.mock.model.response.OtpDetailResponse;
 import io.getlime.core.rest.model.base.request.ObjectRequest;
 import io.getlime.core.rest.model.base.response.ObjectResponse;
-import io.getlime.security.powerauth.crypto.lib.encryptor.ecies.model.EciesScope;
 import io.getlime.security.powerauth.rest.api.spring.annotation.EncryptedRequestBody;
 import io.getlime.security.powerauth.rest.api.spring.annotation.PowerAuthEncryption;
-import io.getlime.security.powerauth.rest.api.spring.encryption.EciesEncryptionContext;
+import io.getlime.security.powerauth.rest.api.spring.encryption.EncryptionContext;
+import io.getlime.security.powerauth.rest.api.spring.encryption.EncryptionScope;
 import io.getlime.security.powerauth.rest.api.spring.exception.PowerAuthEncryptionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,16 +64,16 @@ public class OnboardingOtpController {
      * Get onboarding OTP detail for tests.
      *
      * @param request OTP detail request.
-     * @param eciesContext ECIES context.
+     * @param encryptionContext Encryption context.
      * @return OTP detail response.
      * @throws PowerAuthEncryptionException In case encryption or decryption fails.
      */
     @RequestMapping(value = "otp/detail", method = RequestMethod.POST)
-    @PowerAuthEncryption(scope = EciesScope.APPLICATION_SCOPE)
+    @PowerAuthEncryption(scope = EncryptionScope.APPLICATION_SCOPE)
     public ObjectResponse<OtpDetailResponse> getOtpDetail(@EncryptedRequestBody ObjectRequest<OtpDetailRequest> request,
-                                                         EciesEncryptionContext eciesContext) throws PowerAuthEncryptionException, OnboardingProcessException {
+                                                         EncryptionContext encryptionContext) throws PowerAuthEncryptionException, OnboardingProcessException {
 
-        if (eciesContext == null) {
+        if (encryptionContext == null) {
             logger.error("Encryption failed");
             throw new PowerAuthEncryptionException();
         }

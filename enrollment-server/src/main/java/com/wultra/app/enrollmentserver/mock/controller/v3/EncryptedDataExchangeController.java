@@ -23,17 +23,16 @@ import com.wultra.app.enrollmentserver.mock.model.request.DataExchangeRequest;
 import com.wultra.app.enrollmentserver.mock.model.response.DataExchangeResponse;
 import io.getlime.core.rest.model.base.request.ObjectRequest;
 import io.getlime.core.rest.model.base.response.ObjectResponse;
-import io.getlime.security.powerauth.crypto.lib.encryptor.ecies.model.EciesScope;
 import io.getlime.security.powerauth.rest.api.spring.annotation.EncryptedRequestBody;
 import io.getlime.security.powerauth.rest.api.spring.annotation.PowerAuth;
 import io.getlime.security.powerauth.rest.api.spring.annotation.PowerAuthEncryption;
 import io.getlime.security.powerauth.rest.api.spring.authentication.PowerAuthApiAuthentication;
-import io.getlime.security.powerauth.rest.api.spring.encryption.EciesEncryptionContext;
+import io.getlime.security.powerauth.rest.api.spring.encryption.EncryptionContext;
+import io.getlime.security.powerauth.rest.api.spring.encryption.EncryptionScope;
 import io.getlime.security.powerauth.rest.api.spring.exception.PowerAuthAuthenticationException;
 import io.getlime.security.powerauth.rest.api.spring.exception.PowerAuthEncryptionException;
 import io.getlime.security.powerauth.rest.api.spring.exception.authentication.PowerAuthSignatureInvalidException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
@@ -50,59 +49,58 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController("encryptedDataExchangeControllerV3")
 @RequestMapping(value = "/exchange")
+@Slf4j
 public class EncryptedDataExchangeController {
-
-    private final static Logger logger = LoggerFactory.getLogger(EncryptedDataExchangeController.class);
 
     /**
      * Sample encrypted data exchange in application scope.
      *
      * @param request Data exchange request.
-     * @param eciesContext ECIES context.
+     * @param encryptionContext Encryption context.
      * @return Data exchange response.
      * @throws PowerAuthEncryptionException In case encryption or decryption fails.
      */
     @RequestMapping(value = "v3/application", method = RequestMethod.POST)
-    @PowerAuthEncryption(scope = EciesScope.APPLICATION_SCOPE)
+    @PowerAuthEncryption(scope = EncryptionScope.APPLICATION_SCOPE)
     public DataExchangeResponse exchangeInApplicationScope(@EncryptedRequestBody DataExchangeRequest request,
-                                             EciesEncryptionContext eciesContext) throws PowerAuthEncryptionException {
+                                             EncryptionContext encryptionContext) throws PowerAuthEncryptionException {
 
-        if (eciesContext == null) {
+        if (encryptionContext == null) {
             logger.error("Encryption failed");
             throw new PowerAuthEncryptionException();
         }
 
         // Return a slightly different String containing original data in response
-        return new DataExchangeResponse("Server successfully decrypted signed data: " + (request == null ? "''" : request.getData()) + ", scope: " + eciesContext.getEciesScope());
+        return new DataExchangeResponse("Server successfully decrypted signed data: " + (request == null ? "''" : request.getData()) + ", scope: " + encryptionContext.getEncryptionScope());
     }
 
     /**
      * Sample encrypted data exchange in activation scope.
      *
      * @param request Data exchange request.
-     * @param eciesContext ECIES context.
+     * @param encryptionContext Encryption context.
      * @return Data exchange response.
      * @throws PowerAuthEncryptionException In case encryption or decryption fails.
      */
     @RequestMapping(value = "v3/activation", method = RequestMethod.POST)
-    @PowerAuthEncryption(scope = EciesScope.ACTIVATION_SCOPE)
+    @PowerAuthEncryption(scope = EncryptionScope.ACTIVATION_SCOPE)
     public DataExchangeResponse exchangeInActivationScope(@EncryptedRequestBody DataExchangeRequest request,
-                                            EciesEncryptionContext eciesContext) throws PowerAuthEncryptionException {
+                                            EncryptionContext encryptionContext) throws PowerAuthEncryptionException {
 
-        if (eciesContext == null) {
+        if (encryptionContext == null) {
             logger.error("Encryption failed");
             throw new PowerAuthEncryptionException();
         }
 
         // Return a slightly different String containing original data in response
-        return new DataExchangeResponse("Server successfully decrypted signed data: " + (request == null ? "''" : request.getData()) + ", scope: " + eciesContext.getEciesScope());
+        return new DataExchangeResponse("Server successfully decrypted signed data: " + (request == null ? "''" : request.getData()) + ", scope: " + encryptionContext.getEncryptionScope());
     }
 
     /**
      * Sample signed and encrypted data exchange.
      *
      * @param request Data exchange request.
-     * @param eciesContext ECIES context.
+     * @param encryptionContext Encryption context.
      * @param auth PowerAuth authentication object.
      * @return Data exchange response.
      * @throws PowerAuthAuthenticationException In case signature validation fails.
@@ -110,9 +108,9 @@ public class EncryptedDataExchangeController {
      */
     @RequestMapping(value = "v3/signed", method = RequestMethod.POST)
     @PowerAuth(resourceId = "/exchange/v3/signed")
-    @PowerAuthEncryption(scope = EciesScope.ACTIVATION_SCOPE)
+    @PowerAuthEncryption(scope = EncryptionScope.ACTIVATION_SCOPE)
     public DataExchangeResponse exchangeSignedAndEncryptedData(@EncryptedRequestBody DataExchangeRequest request,
-                                                                EciesEncryptionContext eciesContext,
+                                                                EncryptionContext encryptionContext,
                                                                 PowerAuthApiAuthentication auth) throws PowerAuthAuthenticationException, PowerAuthEncryptionException {
 
         if (auth == null || auth.getUserId() == null) {
@@ -120,7 +118,7 @@ public class EncryptedDataExchangeController {
             throw new PowerAuthSignatureInvalidException();
         }
 
-        if (eciesContext == null) {
+        if (encryptionContext == null) {
             logger.error("Encryption failed");
             throw new PowerAuthEncryptionException();
         }
@@ -133,7 +131,7 @@ public class EncryptedDataExchangeController {
      * Sample signed and encrypted data exchange of String data.
      *
      * @param requestData Request with String data.
-     * @param eciesContext ECIES context.
+     * @param encryptionContext Encryption context.
      * @param auth PowerAuth authentication object.
      * @return Data exchange response.
      * @throws PowerAuthAuthenticationException In case signature validation fails.
@@ -141,9 +139,9 @@ public class EncryptedDataExchangeController {
      */
     @RequestMapping(value = "v3/signed/string", method = RequestMethod.POST)
     @PowerAuth(resourceId = "/exchange/v3/signed/string")
-    @PowerAuthEncryption(scope = EciesScope.ACTIVATION_SCOPE)
+    @PowerAuthEncryption(scope = EncryptionScope.ACTIVATION_SCOPE)
     public String exchangeSignedAndEncryptedDataString(@EncryptedRequestBody String requestData,
-                                                                       EciesEncryptionContext eciesContext,
+                                                                       EncryptionContext encryptionContext,
                                                                        PowerAuthApiAuthentication auth) throws PowerAuthAuthenticationException, PowerAuthEncryptionException {
 
         if (auth == null || auth.getUserId() == null) {
@@ -151,7 +149,7 @@ public class EncryptedDataExchangeController {
             throw new PowerAuthSignatureInvalidException();
         }
 
-        if (eciesContext == null) {
+        if (encryptionContext == null) {
             logger.error("Encryption failed");
             throw new PowerAuthEncryptionException();
         }
@@ -164,7 +162,7 @@ public class EncryptedDataExchangeController {
      * Sample signed and encrypted data exchange of raw data as byte[].
      *
      * @param requestData Request with raw byte[] data.
-     * @param eciesContext ECIES context.
+     * @param encryptionContext Encryption context.
      * @param auth PowerAuth authentication object.
      * @return Data exchange response.
      * @throws PowerAuthAuthenticationException In case signature validation fails.
@@ -172,9 +170,9 @@ public class EncryptedDataExchangeController {
      */
     @RequestMapping(value = "v3/signed/raw", method = RequestMethod.POST)
     @PowerAuth(resourceId = "/exchange/v3/signed/raw")
-    @PowerAuthEncryption(scope = EciesScope.ACTIVATION_SCOPE)
+    @PowerAuthEncryption(scope = EncryptionScope.ACTIVATION_SCOPE)
     public byte[] exchangeSignedAndEncryptedDataRaw(@EncryptedRequestBody byte[] requestData,
-                                                               EciesEncryptionContext eciesContext,
+                                                               EncryptionContext encryptionContext,
                                                                PowerAuthApiAuthentication auth) throws PowerAuthAuthenticationException, PowerAuthEncryptionException {
 
         if (auth == null || auth.getUserId() == null) {
@@ -182,7 +180,7 @@ public class EncryptedDataExchangeController {
             throw new PowerAuthSignatureInvalidException();
         }
 
-        if (eciesContext == null) {
+        if (encryptionContext == null) {
             logger.error("Encryption failed");
             throw new PowerAuthEncryptionException();
         }
@@ -195,7 +193,7 @@ public class EncryptedDataExchangeController {
      * Sample signed and encrypted data exchange of generified request.
      *
      * @param request Request with generified request data.
-     * @param eciesContext ECIES context.
+     * @param encryptionContext Encryption context.
      * @param auth PowerAuth authentication object.
      * @return Generified data exchange response.
      * @throws PowerAuthAuthenticationException In case signature validation fails.
@@ -203,16 +201,16 @@ public class EncryptedDataExchangeController {
      */
     @RequestMapping(value = "v3/signed/generics", method = RequestMethod.POST)
     @PowerAuth(resourceId = "/exchange/v3/signed/generics")
-    @PowerAuthEncryption(scope = EciesScope.ACTIVATION_SCOPE)
+    @PowerAuthEncryption(scope = EncryptionScope.ACTIVATION_SCOPE)
     public ObjectResponse<DataExchangeResponse> exchangeSignedAndEncryptedDataGenerics(@EncryptedRequestBody ObjectRequest<DataExchangeRequest> request,
-                                                                                       EciesEncryptionContext eciesContext,
+                                                                                       EncryptionContext encryptionContext,
                                                                                        PowerAuthApiAuthentication auth) throws PowerAuthAuthenticationException, PowerAuthEncryptionException {
         if (auth == null || auth.getUserId() == null) {
             logger.info("Signature validation failed");
             throw new PowerAuthSignatureInvalidException();
         }
 
-        if (eciesContext == null) {
+        if (encryptionContext == null) {
             logger.error("Encryption failed");
             throw new PowerAuthEncryptionException();
         }

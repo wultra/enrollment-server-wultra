@@ -28,6 +28,7 @@ import com.wultra.core.rest.client.base.RestClientException;
 import io.netty.channel.ChannelOption;
 import lombok.extern.slf4j.Slf4j;
 import net.minidev.json.JSONObject;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -55,6 +56,7 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 import org.springframework.web.util.UriComponentsBuilder;
 import reactor.netty.http.client.HttpClient;
 import reactor.netty.resources.ConnectionProvider;
+import reactor.netty.transport.ProxyProvider;
 
 import java.time.Duration;
 import java.util.Map;
@@ -170,7 +172,7 @@ public class IProovConfig {
 
     private static WebClient createWebClient(final ExchangeFilterFunction filter, IProovConfigProps configProps, final String logContext) {
         final RestClientConfiguration restClientConfig = configProps.getRestClientConfig();
-        final Integer connectionTimeout = restClientConfig.getConnectionTimeout();
+        final Duration connectionTimeout = restClientConfig.getConnectionTimeout();
         final Duration responseTimeout = restClientConfig.getResponseTimeout();
         final Duration maxIdleTime = Objects.requireNonNull(restClientConfig.getMaxIdleTime(), "maxIdleTime must be specified");
         logger.info("Setting {} connectionTimeout: {}, responseTimeout: {}, maxIdleTime: {}", logContext, connectionTimeout, responseTimeout, maxIdleTime);
@@ -178,9 +180,26 @@ public class IProovConfig {
         final ConnectionProvider connectionProvider = ConnectionProvider.builder("custom")
                 .maxIdleTime(maxIdleTime)
                 .build();
-        final HttpClient httpClient = HttpClient.create(connectionProvider)
-                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, connectionTimeout)
+        HttpClient httpClient = HttpClient.create(connectionProvider)
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, Math.toIntExact(connectionTimeout.toMillis()))
                 .responseTimeout(responseTimeout);
+
+        if (restClientConfig.isProxyEnabled()) {
+            logger.debug("Configuring proxy {}:{}", restClientConfig.getProxyHost(), restClientConfig.getProxyPort());
+            httpClient = httpClient.proxy((proxySpec) -> {
+                final ProxyProvider.Builder proxyBuilder = proxySpec
+                        .type(ProxyProvider.Proxy.HTTP)
+                        .host(restClientConfig.getProxyHost())
+                        .port(restClientConfig.getProxyPort());
+                if (StringUtils.isNotBlank(restClientConfig.getProxyUsername())) {
+                    proxyBuilder.username(restClientConfig.getProxyUsername());
+                    proxyBuilder.password(s -> restClientConfig.getProxyPassword());
+                }
+
+                proxyBuilder.build();
+            });
+        }
+
         final ReactorClientHttpConnector connector = new ReactorClientHttpConnector(httpClient);
 
         return WebClient.builder()
