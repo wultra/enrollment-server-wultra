@@ -86,10 +86,10 @@
     <properties>
         <openapi-generator-maven-plugin.version>6.5.0</openapi-generator-maven-plugin.version>
 
-        <shedlock-spring.version>5.1.0</shedlock-spring.version>
+        <shedlock.version>5.7.0</shedlock.version>
         <spring-statemachine.version>3.2.1</spring-statemachine.version>
-        <swagger-annotations-jakarta.version>2.2.8</swagger-annotations-jakarta.version>
-        <springdoc-openapi-starter-webmvc-ui.version>2.1.0</springdoc-openapi-starter-webmvc-ui.version>
+        <swagger-annotations-jakarta.version>2.2.15</swagger-annotations-jakarta.version>
+        <springdoc-openapi-starter-webmvc-ui.version>2.2.0</springdoc-openapi-starter-webmvc-ui.version>
         <moneta.version>1.4.2</moneta.version>
 
         <wultra-core.version>1.7.0-SNAPSHOT</wultra-core.version>
@@ -98,6 +98,7 @@
         <powerauth-push.version>1.5.0-SNAPSHOT</powerauth-push.version>
 
         <bcprov-jdk18on.version>1.76</bcprov-jdk18on.version>
+        <logstash.version>7.4</logstash.version>
     </properties>
 
     <dependencyManagement>
@@ -206,11 +207,27 @@
                 <version>${bcprov-jdk18on.version}</version>
             </dependency>
 
+            <!-- Logging -->
+            <dependency>
+                <groupId>net.logstash.logback</groupId>
+                <artifactId>logstash-logback-encoder</artifactId>
+                <version>${logstash.version}</version>
+            </dependency>
+
             <!-- Documentation -->
             <dependency>
                 <groupId>org.springdoc</groupId>
                 <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
                 <version>${springdoc-openapi-starter-webmvc-ui.version}</version>
+            </dependency>
+
+            <!-- Job Scheduling -->
+            <dependency>
+                <groupId>net.javacrumbs.shedlock</groupId>
+                <artifactId>shedlock-bom</artifactId>
+                <version>${shedlock.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
