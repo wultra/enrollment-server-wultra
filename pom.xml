@@ -26,13 +26,13 @@
 
     <groupId>com.wultra.security</groupId>
     <artifactId>enrollment-server-parent</artifactId>
-    <version>1.5.0-SNAPSHOT</version>
+    <version>1.6.0-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.1.3</version>
+        <version>3.1.4</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
 
@@ -86,16 +86,16 @@
     <properties>
         <openapi-generator-maven-plugin.version>6.5.0</openapi-generator-maven-plugin.version>
 
-        <shedlock.version>5.7.0</shedlock.version>
+        <shedlock.version>5.8.0</shedlock.version>
         <spring-statemachine.version>3.2.1</spring-statemachine.version>
         <swagger-annotations-jakarta.version>2.2.15</swagger-annotations-jakarta.version>
         <springdoc-openapi-starter-webmvc-ui.version>2.2.0</springdoc-openapi-starter-webmvc-ui.version>
         <moneta.version>1.4.2</moneta.version>
 
-        <wultra-core.version>1.7.0-SNAPSHOT</wultra-core.version>
-        <powerauth-crypto.version>1.5.0-SNAPSHOT</powerauth-crypto.version>
-        <powerauth-restful-integration.version>1.5.0-SNAPSHOT</powerauth-restful-integration.version>
-        <powerauth-push.version>1.5.0-SNAPSHOT</powerauth-push.version>
+        <wultra-core.version>1.7.0</wultra-core.version>
+        <powerauth-crypto.version>1.5.1</powerauth-crypto.version>
+        <powerauth-restful-integration.version>1.5.0</powerauth-restful-integration.version>
+        <powerauth-push.version>1.5.0</powerauth-push.version>
 
         <bcprov-jdk18on.version>1.76</bcprov-jdk18on.version>
         <logstash.version>7.4</logstash.version>
@@ -276,6 +276,13 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>
+                <dependencies>
+                    <dependency>
+                        <groupId>de.skuzzle.enforcer</groupId>
+                        <artifactId>restrict-imports-enforcer-rule</artifactId>
+                        <version>2.4.0</version>
+                    </dependency>
+                </dependencies>
                 <executions>
                     <execution>
                         <id>enforce-banned-dependencies</id>
@@ -291,6 +298,21 @@
                                         <exclude>org.bouncycastle:bcprov-jdk15on:*:*:compile</exclude>
                                     </excludes>
                                 </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>enforce-banned-java-imports</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <RestrictImports>
+                                    <!--  https://github.com/google/guava/issues/2960  -->
+                                    <reason>Guava depends on jsr305 but we prefer jakarta in our code</reason>
+                                    <bannedImport>javax.annotation.**</bannedImport>
+                                </RestrictImports>
                             </rules>
                         </configuration>
                     </execution>
