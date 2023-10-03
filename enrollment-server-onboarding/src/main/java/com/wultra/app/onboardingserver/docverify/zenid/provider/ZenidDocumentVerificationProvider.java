@@ -36,6 +36,7 @@ import com.wultra.app.onboardingserver.docverify.zenid.service.ZenidRestApiServi
 import com.wultra.app.onboardingserver.errorhandling.DocumentVerificationException;
 import com.wultra.app.onboardingserver.provider.DocumentVerificationProvider;
 import com.wultra.core.rest.client.base.RestClientException;
+import jakarta.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,7 +47,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 
-import javax.annotation.Nullable;
 import java.util.*;
 
 /**
@@ -569,7 +569,6 @@ public class ZenidDocumentVerificationProvider implements DocumentVerificationPr
             case ERROR -> DocumentVerificationStatus.FAILED;
             case NOTDONE, OPERATOR -> DocumentVerificationStatus.IN_PROGRESS;
             case REJECTED -> DocumentVerificationStatus.REJECTED;
-            default -> throw new IllegalStateException("Unknown investigation status in ZenID: " + stateEnum);
         };
     }
 
@@ -590,7 +589,6 @@ public class ZenidDocumentVerificationProvider implements DocumentVerificationPr
         return switch (pageCodeEnum) {
             case F -> CardSide.FRONT;
             case B -> CardSide.BACK;
-            default -> throw new IllegalStateException("Unexpected side page code value: " + pageCodeEnum);
         };
     }
 
