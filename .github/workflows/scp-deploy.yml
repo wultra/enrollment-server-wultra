@@ -32,16 +32,16 @@ jobs:
       - name: Deploy enrollment-server.war
         shell: bash
         run: |
-          scp -o 'StrictHostKeyChecking no' -i ~/.ssh/id_rsa enrollment-server-wultra-*.war ${{ secrets.SCP_USERNAME }}@${{ secrets.SCP_HOST }}:/opt/apache-tomcat/webapps/enrollment-server.war
+          scp -i ~/.ssh/id_rsa enrollment-server-wultra-*.war ${{ secrets.SCP_USERNAME }}@${{ secrets.SCP_HOST }}:/opt/apache-tomcat/webapps/enrollment-server.war
       - name: Deploy enrollment-server-onboarding.war
         shell: bash
         run: |
-          scp -o 'StrictHostKeyChecking no' -i ~/.ssh/id_rsa enrollment-server-onboarding-wultra-*.war ${{ secrets.SCP_USERNAME }}@${{ secrets.SCP_HOST }}:/opt/apache-tomcat/webapps/enrollment-server-onboarding.war
+          scp -i ~/.ssh/id_rsa enrollment-server-onboarding-wultra-*.war ${{ secrets.SCP_USERNAME }}@${{ secrets.SCP_HOST }}:/opt/apache-tomcat/webapps/enrollment-server-onboarding.war
       - name: Deploy enrollment-server.war mock
         shell: bash
         run: |
-          scp -o 'StrictHostKeyChecking no' -i ~/.ssh/id_rsa enrollment-server-wultra-*.war ${{ secrets.SCP_USERNAME }}@${{ secrets.SCP_HOST }}:/opt/apache-tomcat/webapps/enrollment-server-mock.war
+          scp -i ~/.ssh/id_rsa enrollment-server-wultra-*.war ${{ secrets.SCP_USERNAME }}@${{ secrets.SCP_HOST }}:/opt/apache-tomcat/webapps/enrollment-server-mock.war
       - name: Deploy enrollment-server-onboarding.war mock
         shell: bash
         run: |
-          scp -o 'StrictHostKeyChecking no' -i ~/.ssh/id_rsa enrollment-server-onboarding-wultra-*.war ${{ secrets.SCP_USERNAME }}@${{ secrets.SCP_HOST }}:/opt/apache-tomcat/webapps/enrollment-server-onboarding-mock.war
+          scp -i ~/.ssh/id_rsa enrollment-server-onboarding-wultra-*.war ${{ secrets.SCP_USERNAME }}@${{ secrets.SCP_HOST }}:/opt/apache-tomcat/webapps/enrollment-server-onboarding-mock.war
