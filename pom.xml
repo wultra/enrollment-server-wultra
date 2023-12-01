@@ -32,7 +32,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.1.5</version>
+        <version>3.1.6</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
 
@@ -77,16 +77,20 @@
         <module>enrollment-server-api-model</module>
         <module>enrollment-server</module>
         <module>enrollment-server-onboarding</module>
-        <module>enrollment-server-onboarding-adapter-mock</module>
-        <module>enrollment-server-onboarding-domain-model</module>
+        <module>enrollment-server-onboarding-api</module>
         <module>enrollment-server-onboarding-api-model</module>
+        <module>enrollment-server-onboarding-adapter-mock</module>
         <module>enrollment-server-onboarding-common</module>
+        <module>enrollment-server-onboarding-domain-model</module>
+        <module>enrollment-server-onboarding-provider-innovatrics</module>
+        <module>enrollment-server-onboarding-provider-iproov</module>
+        <module>enrollment-server-onboarding-provider-zenid</module>
     </modules>
 
     <properties>
-        <openapi-generator-maven-plugin.version>6.5.0</openapi-generator-maven-plugin.version>
+        <openapi-generator-maven-plugin.version>7.0.0</openapi-generator-maven-plugin.version>
 
-        <shedlock.version>5.9.1</shedlock.version>
+        <shedlock.version>5.10.0</shedlock.version>
         <spring-statemachine.version>3.2.1</spring-statemachine.version>
         <swagger-annotations-jakarta.version>2.2.15</swagger-annotations-jakarta.version>
         <springdoc-openapi-starter-webmvc-ui.version>2.2.0</springdoc-openapi-starter-webmvc-ui.version>
@@ -100,7 +104,7 @@
         <powerauth-restful-integration.version>1.6.0-SNAPSHOT</powerauth-restful-integration.version>
         <powerauth-push.version>1.6.0-SNAPSHOT</powerauth-push.version>
 
-        <bcprov-jdk18on.version>1.76</bcprov-jdk18on.version>
+        <bcprov-jdk18on.version>1.77</bcprov-jdk18on.version>
         <logstash.version>7.4</logstash.version>
     </properties>
 
@@ -114,7 +118,31 @@
 
             <dependency>
                 <groupId>com.wultra.security</groupId>
-                <artifactId>enrollment-server-common</artifactId>
+                <artifactId>enrollment-server-onboarding-common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.wultra.security</groupId>
+                <artifactId>enrollment-server-onboarding-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.wultra.security</groupId>
+                <artifactId>enrollment-server-onboarding-provider-innovatrics</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.wultra.security</groupId>
+                <artifactId>enrollment-server-onboarding-provider-iproov</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.wultra.security</groupId>
+                <artifactId>enrollment-server-onboarding-provider-zenid</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -244,6 +272,14 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <excludedGroups>external-service</excludedGroups>
+                </configuration>
+            </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
