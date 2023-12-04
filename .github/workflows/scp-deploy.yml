@@ -45,3 +45,7 @@ jobs:
         shell: bash
         run: |
           scp -i ~/.ssh/id_rsa **/target/enrollment-server-onboarding-wultra-*.war ${{ secrets.SCP_USERNAME }}@${{ secrets.SCP_HOST }}:/opt/apache-tomcat/webapps/enrollment-server-onboarding-mock.war
+      - name: Deploy enrollment-server.war innovatrics
+        shell: bash
+        run: |
+          scp -i ~/.ssh/id_rsa **/target/enrollment-server-wultra-*.war ${{ secrets.SCP_USERNAME }}@${{ secrets.SCP_HOST }}:/opt/apache-tomcat/webapps/enrollment-server-innovatrics.war
