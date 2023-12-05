@@ -30,10 +30,10 @@ jobs:
           mkdir -p ~/.ssh/
           chmod -R 700 ~/.ssh
           ssh-keyscan -t rsa ${{ secrets.SCP_HOST }} >> ~/.ssh/known_hosts
-          ssh-add -l
       - name: Deploy enrollment-server.war
         shell: bash
         run: |
+          ssh-add -l
           scp **/target/enrollment-server-wultra-*.war ${{ secrets.SCP_USERNAME }}@${{ secrets.SCP_HOST }}:/opt/apache-tomcat/webapps/enrollment-server.war
       - name: Deploy enrollment-server-onboarding.war
         shell: bash
