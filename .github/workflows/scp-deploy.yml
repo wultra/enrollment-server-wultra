@@ -30,6 +30,7 @@ jobs:
           mkdir -p ~/.ssh/
           chmod -R 700 ~/.ssh
           ssh-keyscan -t rsa ${{ secrets.SCP_HOST }} >> ~/.ssh/known_hosts
+          ssh-add -l
       - name: Deploy enrollment-server.war
         shell: bash
         run: |
