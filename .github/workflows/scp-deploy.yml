@@ -25,9 +25,7 @@ jobs:
           INTERNAL_PASSWORD: ${{ secrets.JFROG_PASSWORD }}
       - name: Set up SSH key
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SCP_CERTIFICATE }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
+          ssh-add - <<< "${{ secrets.SCP_CERTIFICATE }}"
           ssh-keyscan -t rsa ${{ secrets.SCP_HOST }} >> ~/.ssh/known_hosts
       - name: Deploy enrollment-server.war
         shell: bash
