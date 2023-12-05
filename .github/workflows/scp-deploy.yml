@@ -47,3 +47,6 @@ jobs:
         shell: bash
         run: |
           ssh ${{ secrets.SCP_USERNAME }}@${{ secrets.SCP_HOST }} 'cp /opt/apache-tomcat/webapps/enrollment-server-onboarding.war /opt/apache-tomcat/webapps/enrollment-server-onboarding-innovatrics.war'
+      - name: Delete SSH key
+        run: |
+          ssh-add -D
