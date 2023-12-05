@@ -25,7 +25,7 @@ jobs:
           INTERNAL_PASSWORD: ${{ secrets.JFROG_PASSWORD }}
       - name: Set up SSH key
         run: |
-          ssh-agent -s
+          eval `ssh-agent -s`
           ssh-add - <<< "${{ secrets.SCP_CERTIFICATE }}"
           ssh-keyscan -t rsa ${{ secrets.SCP_HOST }} >> ~/.ssh/known_hosts
       - name: Deploy enrollment-server.war
