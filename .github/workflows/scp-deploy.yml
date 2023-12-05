@@ -30,20 +30,20 @@ jobs:
       - name: Deploy enrollment-server.war
         shell: bash
         run: |
-          scp -i ~/.ssh/id_rsa **/target/enrollment-server-wultra-*.war ${{ secrets.SCP_USERNAME }}@${{ secrets.SCP_HOST }}:/opt/apache-tomcat/webapps/enrollment-server.war
+          scp **/target/enrollment-server-wultra-*.war ${{ secrets.SCP_USERNAME }}@${{ secrets.SCP_HOST }}:/opt/apache-tomcat/webapps/enrollment-server.war
       - name: Deploy enrollment-server-onboarding.war
         shell: bash
         run: |
-          scp -i ~/.ssh/id_rsa **/target/enrollment-server-onboarding-wultra-*.war ${{ secrets.SCP_USERNAME }}@${{ secrets.SCP_HOST }}:/opt/apache-tomcat/webapps/enrollment-server-onboarding.war
+          scp **/target/enrollment-server-onboarding-wultra-*.war ${{ secrets.SCP_USERNAME }}@${{ secrets.SCP_HOST }}:/opt/apache-tomcat/webapps/enrollment-server-onboarding.war
       - name: Deploy enrollment-server.war mock
         shell: bash
         run: |
-          ssh -i ~/.ssh/id_rsa ${{ secrets.SCP_USERNAME }}@${{ secrets.SCP_HOST }} 'cp /opt/apache-tomcat/webapps/enrollment-server.war /opt/apache-tomcat/webapps/enrollment-server-mock.war'
+          ssh ${{ secrets.SCP_USERNAME }}@${{ secrets.SCP_HOST }} 'cp /opt/apache-tomcat/webapps/enrollment-server.war /opt/apache-tomcat/webapps/enrollment-server-mock.war'
       - name: Deploy enrollment-server-onboarding.war mock
         shell: bash
         run: |
-          ssh -i ~/.ssh/id_rsa ${{ secrets.SCP_USERNAME }}@${{ secrets.SCP_HOST }} 'cp /opt/apache-tomcat/webapps/enrollment-server-onboarding.war /opt/apache-tomcat/webapps/enrollment-server-onboarding-mock.war'
+          ssh ${{ secrets.SCP_USERNAME }}@${{ secrets.SCP_HOST }} 'cp /opt/apache-tomcat/webapps/enrollment-server-onboarding.war /opt/apache-tomcat/webapps/enrollment-server-onboarding-mock.war'
       - name: Deploy enrollment-server-onboarding.war innovatrics
         shell: bash
         run: |
-          ssh -i ~/.ssh/id_rsa ${{ secrets.SCP_USERNAME }}@${{ secrets.SCP_HOST }} 'cp /opt/apache-tomcat/webapps/enrollment-server-onboarding.war /opt/apache-tomcat/webapps/enrollment-server-onboarding-innovatrics.war'
+          ssh ${{ secrets.SCP_USERNAME }}@${{ secrets.SCP_HOST }} 'cp /opt/apache-tomcat/webapps/enrollment-server-onboarding.war /opt/apache-tomcat/webapps/enrollment-server-onboarding-innovatrics.war'
