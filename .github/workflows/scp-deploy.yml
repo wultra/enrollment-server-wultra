@@ -27,8 +27,8 @@ jobs:
         run: |
           eval $(ssh-agent -s)
           ssh-add - <<< "${{ secrets.SCP_CERTIFICATE }}"
-          mkdir -p ~/.ssh/
-          chmod 600 ~/.ssh
+          mkdir -p ~/.ssh/ && touch ~/.ssh/known_hosts
+          chmod -R 600 ~/.ssh
           ssh-keyscan -t rsa ${{ secrets.SCP_HOST }} >> ~/.ssh/known_hosts
       - name: Deploy enrollment-server.war
         shell: bash
