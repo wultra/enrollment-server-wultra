@@ -9,7 +9,6 @@ The Enrollment Server uses the following public configuration properties:
 | `spring.datasource.url` | `_empty_` | Database JDBC URL |
 | `spring.datasource.username` | `_empty_` | Database JDBC username |
 | `spring.datasource.password` | `_empty_` | Database JDBC password |
-| `spring.datasource.driver-class-name` | `_empty_` | Datasource JDBC class name | 
 | `spring.jpa.hibernate.ddl-auto` | `none` | Configuration of automatic database schema creation | 
 | `spring.jpa.properties.hibernate.connection.characterEncoding` | `_empty_` | Character encoding |
 | `spring.jpa.properties.hibernate.connection.useUnicode` | `_empty_` | Character encoding - Unicode support |
@@ -63,6 +62,8 @@ logging.pattern.console=%clr(%d{${LOG_DATEFORMAT_PATTERN:yyyy-MM-dd HH:mm:ss.SSS
 
 
 ## Monitoring and Observability
-
+| Property                                  | Default | Note                                                                                                                                                                        |
+|-------------------------------------------|---------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `management.tracing.sampling.probability` | `1.0`   | Specifies the proportion of requests that are sampled for tracing. A value of 1.0 means that 100% of requests are sampled, while a value of 0 effectively disables tracing. |
 The WAR file includes the `micrometer-registry-prometheus` dependency.
 Discuss its configuration with the [Spring Boot documentation](https://docs.spring.io/spring-boot/docs/3.1.x/reference/html/actuator.html#actuator.metrics).
