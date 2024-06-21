@@ -153,18 +153,6 @@ public class MockCustomActivationProvider implements CustomActivationProvider {
     }
 
     @Override
-    public Integer getMaxFailedAttemptCount(Map<String, String> identityAttributes, Map<String, Object> customAttributes, String userId, ActivationType activationType, Map<String, Object> context) {
-        // Null value means use value configured on PowerAuth server
-        return null;
-    }
-
-    @Override
-    public Long getValidityPeriodDuringActivation(Map<String, String> identityAttributes, Map<String, Object> customAttributes, String userId, ActivationType activationType, Map<String, Object> context) {
-        // Null value means use value configured on PowerAuth server
-        return null;
-    }
-
-    @Override
     @Transactional
     public List<String> getActivationFlags(Map<String, String> identityAttributes, Map<String, Object> customAttributes, String activationId, String userId, String appId, ActivationType activationType, Map<String, Object> context) {
         // Testing of onboarding process, the VERIFICATION_PENDING flag needs to be added
