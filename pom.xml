@@ -32,7 +32,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.3.3</version>
+        <version>3.3.4</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
 
@@ -88,16 +88,16 @@
     </modules>
 
     <properties>
-        <openapi-generator-maven-plugin.version>7.8.0</openapi-generator-maven-plugin.version>
+        <openapi-generator-maven-plugin.version>7.9.0</openapi-generator-maven-plugin.version>
 
         <shedlock.version>5.16.0</shedlock.version>
         <spring-statemachine.version>4.0.0</spring-statemachine.version>
-        <swagger-annotations-jakarta.version>2.2.23</swagger-annotations-jakarta.version>
+        <swagger-annotations-jakarta.version>2.2.25</swagger-annotations-jakarta.version>
         <springdoc-openapi-starter-webmvc-ui.version>2.6.0</springdoc-openapi-starter-webmvc-ui.version>
         <moneta.version>1.4.4</moneta.version>
 
-        <wultra-core.version>1.11.0-SNAPSHOT</wultra-core.version>
-        <powerauth-crypto.version>1.9.0-SNAPSHOT</powerauth-crypto.version>
+        <wultra-core.version>1.11.0</wultra-core.version>
+        <powerauth-crypto.version>1.9.0</powerauth-crypto.version>
         <powerauth-restful-integration.version>1.9.0-SNAPSHOT</powerauth-restful-integration.version>
         <powerauth-push.version>1.9.0-SNAPSHOT</powerauth-push.version>
 
