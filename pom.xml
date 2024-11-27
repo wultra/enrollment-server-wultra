@@ -32,7 +32,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.3.5</version>
+        <version>3.4.0</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
 
@@ -88,12 +88,13 @@
     </modules>
 
     <properties>
-        <openapi-generator-maven-plugin.version>7.9.0</openapi-generator-maven-plugin.version>
+        <openapi-generator-maven-plugin.version>7.10.0</openapi-generator-maven-plugin.version>
 
-        <shedlock.version>5.16.0</shedlock.version>
+        <okhttp3.version>4.12.0</okhttp3.version>
+        <shedlock.version>6.0.1</shedlock.version>
         <spring-statemachine.version>4.0.0</spring-statemachine.version>
-        <swagger-annotations-jakarta.version>2.2.25</swagger-annotations-jakarta.version>
-        <springdoc-openapi-starter-webmvc-ui.version>2.6.0</springdoc-openapi-starter-webmvc-ui.version>
+        <swagger-annotations-jakarta.version>2.2.26</swagger-annotations-jakarta.version>
+        <springdoc-openapi-starter-webmvc-ui.version>2.7.0</springdoc-openapi-starter-webmvc-ui.version>
         <moneta.version>1.4.4</moneta.version>
 
         <wultra-core.version>1.12.0-SNAPSHOT</wultra-core.version>
@@ -247,6 +248,13 @@
                 <version>${shedlock.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+
+            <!-- Testing -->
+            <dependency>
+                <groupId>com.squareup.okhttp3</groupId>
+                <artifactId>mockwebserver</artifactId>
+                <version>${okhttp3.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
