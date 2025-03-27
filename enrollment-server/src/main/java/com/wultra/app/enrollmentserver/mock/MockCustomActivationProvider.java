@@ -27,9 +27,9 @@ import com.wultra.app.onboardingserver.common.activation.ActivationProcessServic
 import com.wultra.app.onboardingserver.common.errorhandling.OnboardingProcessException;
 import com.wultra.app.onboardingserver.common.errorhandling.PowerAuthActivationOtpException;
 import com.wultra.app.onboardingserver.common.errorhandling.PowerAuthActivationOtpFailedException;
-import io.getlime.security.powerauth.rest.api.model.entity.ActivationType;
-import io.getlime.security.powerauth.rest.api.spring.exception.PowerAuthActivationException;
-import io.getlime.security.powerauth.rest.api.spring.provider.CustomActivationProvider;
+import com.wultra.security.powerauth.rest.api.model.entity.ActivationType;
+import com.wultra.security.powerauth.rest.api.spring.exception.PowerAuthActivationException;
+import com.wultra.security.powerauth.rest.api.spring.provider.CustomActivationProvider;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -40,8 +40,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static io.getlime.security.powerauth.rest.api.model.entity.ActivationType.CUSTOM;
-import static io.getlime.security.powerauth.rest.api.model.entity.ActivationType.RECOVERY;
+import static com.wultra.security.powerauth.rest.api.model.entity.ActivationType.CUSTOM;
+import static com.wultra.security.powerauth.rest.api.model.entity.ActivationType.DIRECT;
 
 /**
  * Default implementation of CustomActivationProvider interface.
@@ -127,8 +127,8 @@ public class MockCustomActivationProvider implements CustomActivationProvider {
     @Override
     public boolean shouldAutoCommitActivation(Map<String, String> identityAttributes, Map<String, Object> customAttributes, String activationId, String userId, String appId, ActivationType activationType, Map<String, Object> context) {
         logger.info("Deciding autocommit for activationId={}, activationType={}, identityAttributes={}", activationId, activationType, identityAttributes);
-        if (activationType == RECOVERY || activationType == CUSTOM) {
-            logger.debug("Activation types RECOVERY and CUSTOM are auto-committed for tests");
+        if (activationType == DIRECT || activationType == CUSTOM) {
+            logger.debug("Activation types DIRECT and CUSTOM are auto-committed for tests");
             return true;
         }
         return false;

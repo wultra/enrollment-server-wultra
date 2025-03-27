@@ -29,8 +29,8 @@ import com.wultra.app.onboardingserver.common.database.OnboardingProcessReposito
 import com.wultra.app.onboardingserver.common.errorhandling.ActivationExceptionHandler;
 import com.wultra.app.onboardingserver.common.service.*;
 import com.wultra.core.audit.base.Audit;
-import com.wultra.security.powerauth.client.PowerAuthClient;
-import io.getlime.security.powerauth.rest.api.spring.service.HttpCustomizationService;
+import com.wultra.security.powerauth.client.v3.PowerAuthClient;
+import com.wultra.security.powerauth.rest.api.spring.service.HttpCustomizationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
