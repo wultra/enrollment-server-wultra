@@ -31,7 +31,7 @@ import com.wultra.security.powerauth.rest.api.spring.encryption.EncryptionContex
 import com.wultra.security.powerauth.rest.api.spring.encryption.EncryptionScope;
 import com.wultra.security.powerauth.rest.api.spring.exception.PowerAuthAuthenticationException;
 import com.wultra.security.powerauth.rest.api.spring.exception.PowerAuthEncryptionException;
-import com.wultra.security.powerauth.rest.api.spring.exception.authentication.PowerAuthSignatureInvalidException;
+import com.wultra.security.powerauth.rest.api.spring.exception.authentication.PowerAuthCodeInvalidException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -114,8 +114,8 @@ public class EncryptedDataExchangeController {
                                                                 PowerAuthApiAuthentication auth) throws PowerAuthAuthenticationException, PowerAuthEncryptionException {
 
         if (auth == null || auth.getUserId() == null) {
-            logger.info("Signature validation failed");
-            throw new PowerAuthSignatureInvalidException();
+            logger.info("Authentication code validation failed");
+            throw new PowerAuthCodeInvalidException();
         }
 
         if (encryptionContext == null) {
@@ -145,8 +145,8 @@ public class EncryptedDataExchangeController {
                                                                        PowerAuthApiAuthentication auth) throws PowerAuthAuthenticationException, PowerAuthEncryptionException {
 
         if (auth == null || auth.getUserId() == null) {
-            logger.info("Signature validation failed");
-            throw new PowerAuthSignatureInvalidException();
+            logger.info("Authentication code validation failed");
+            throw new PowerAuthCodeInvalidException();
         }
 
         if (encryptionContext == null) {
@@ -176,8 +176,8 @@ public class EncryptedDataExchangeController {
                                                                PowerAuthApiAuthentication auth) throws PowerAuthAuthenticationException, PowerAuthEncryptionException {
 
         if (auth == null || auth.getUserId() == null) {
-            logger.info("Signature validation failed");
-            throw new PowerAuthSignatureInvalidException();
+            logger.info("Authentication code validation failed");
+            throw new PowerAuthCodeInvalidException();
         }
 
         if (encryptionContext == null) {
@@ -206,8 +206,8 @@ public class EncryptedDataExchangeController {
                                                                                        EncryptionContext encryptionContext,
                                                                                        PowerAuthApiAuthentication auth) throws PowerAuthAuthenticationException, PowerAuthEncryptionException {
         if (auth == null || auth.getUserId() == null) {
-            logger.info("Signature validation failed");
-            throw new PowerAuthSignatureInvalidException();
+            logger.info("Authentication code validation failed");
+            throw new PowerAuthCodeInvalidException();
         }
 
         if (encryptionContext == null) {
