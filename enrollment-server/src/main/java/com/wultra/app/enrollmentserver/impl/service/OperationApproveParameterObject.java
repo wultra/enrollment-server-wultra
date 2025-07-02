@@ -18,12 +18,13 @@
 package com.wultra.app.enrollmentserver.impl.service;
 
 import com.wultra.core.http.common.request.RequestContext;
-import io.getlime.security.powerauth.crypto.lib.enums.PowerAuthSignatureTypes;
+import com.wultra.security.powerauth.crypto.lib.enums.PowerAuthSignatureTypes;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NonNull;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Parameter object for {@link MobileTokenService#operationApprove(OperationApproveParameterObject)}.
@@ -58,4 +59,6 @@ public class OperationApproveParameterObject {
     private List<String> activationFlags;
 
     private String proximityCheckOtp;
+
+    private Map<String, Object> mobileTokenData;
 }

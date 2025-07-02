@@ -190,7 +190,7 @@ CREATE TABLE IF NOT EXISTS shedlock (
     PRIMARY KEY (name)
 );
 
--- Create audit log table - https://github.com/wultra/lime-java-core#wultra-auditing-library
+-- Create audit log table - https://github.com/wultra/java-core#wultra-auditing-library
 CREATE TABLE IF NOT EXISTS audit_log (
     audit_log_id       VARCHAR(36) PRIMARY KEY,
     application_name   VARCHAR(256) NOT NULL,
@@ -222,3 +222,5 @@ CREATE INDEX IF NOT EXISTS audit_param_log ON audit_param (audit_log_id);
 CREATE INDEX IF NOT EXISTS audit_param_timestamp ON audit_param (timestamp_created);
 CREATE INDEX IF NOT EXISTS audit_param_key ON audit_param (param_key);
 CREATE INDEX IF NOT EXISTS audit_param_value ON audit_param (param_value);
+
+CREATE INDEX IF NOT EXISTS onboarding_process_activation_id ON es_onboarding_process(activation_id);
