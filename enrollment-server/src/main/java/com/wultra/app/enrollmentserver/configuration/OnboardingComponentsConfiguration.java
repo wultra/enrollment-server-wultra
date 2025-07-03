@@ -30,7 +30,7 @@ import com.wultra.app.onboardingserver.common.errorhandling.ActivationExceptionH
 import com.wultra.app.onboardingserver.common.service.*;
 import com.wultra.core.audit.base.Audit;
 import com.wultra.security.powerauth.client.PowerAuthClient;
-import io.getlime.security.powerauth.rest.api.spring.service.HttpCustomizationService;
+import com.wultra.security.powerauth.rest.api.spring.service.HttpCustomizationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.domain.EntityScan;

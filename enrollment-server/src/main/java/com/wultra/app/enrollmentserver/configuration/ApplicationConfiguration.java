@@ -1,7 +1,7 @@
 package com.wultra.app.enrollmentserver.configuration;
 
-import io.getlime.security.powerauth.rest.api.spring.application.PowerAuthApplicationConfiguration;
-import io.getlime.security.powerauth.rest.api.spring.model.ActivationContext;
+import com.wultra.security.powerauth.rest.api.spring.application.PowerAuthApplicationConfiguration;
+import com.wultra.security.powerauth.rest.api.spring.model.ActivationContext;
 import org.springframework.context.annotation.Configuration;
 
 import java.util.LinkedHashMap;

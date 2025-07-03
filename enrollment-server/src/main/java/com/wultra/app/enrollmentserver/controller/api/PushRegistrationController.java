@@ -22,12 +22,12 @@ import com.wultra.app.enrollmentserver.impl.util.ConditionalOnPropertyNotEmpty;
 import com.wultra.app.enrollmentserver.api.model.enrollment.request.PushRegisterRequest;
 import com.wultra.app.enrollmentserver.errorhandling.InvalidRequestObjectException;
 import com.wultra.app.enrollmentserver.errorhandling.PushRegistrationFailedException;
-import io.getlime.core.rest.model.base.request.ObjectRequest;
-import io.getlime.core.rest.model.base.response.Response;
-import io.getlime.security.powerauth.crypto.lib.enums.PowerAuthSignatureTypes;
-import io.getlime.security.powerauth.rest.api.spring.annotation.PowerAuthToken;
-import io.getlime.security.powerauth.rest.api.spring.authentication.PowerAuthApiAuthentication;
-import io.getlime.security.powerauth.rest.api.spring.exception.PowerAuthAuthenticationException;
+import com.wultra.core.rest.model.base.request.ObjectRequest;
+import com.wultra.core.rest.model.base.response.Response;
+import com.wultra.security.powerauth.crypto.lib.enums.PowerAuthSignatureTypes;
+import com.wultra.security.powerauth.rest.api.spring.annotation.PowerAuthToken;
+import com.wultra.security.powerauth.rest.api.spring.authentication.PowerAuthApiAuthentication;
+import com.wultra.security.powerauth.rest.api.spring.exception.PowerAuthAuthenticationException;
 import io.swagger.v3.oas.annotations.Parameter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -75,7 +75,15 @@ public class PushRegistrationController {
             PowerAuthSignatureTypes.POSSESSION_KNOWLEDGE
     })
     public Response registerDeviceDefault(@RequestBody ObjectRequest<PushRegisterRequest> request, @Parameter(hidden = true) PowerAuthApiAuthentication apiAuthentication) throws PowerAuthAuthenticationException, InvalidRequestObjectException, PushRegistrationFailedException {
-        return registerDeviceImpl(request, apiAuthentication);
+        if (apiAuthentication == null) {
+            logger.error("Unable to verify device registration");
+            throw new PowerAuthAuthenticationException("Unable to verify device registration");
+        }
+
+        logger.info("action: registerDeviceDefault, state: initiated, userId: {}", apiAuthentication.getUserId());
+        final Response response = pushRegistrationService.registerDevice(request, apiAuthentication);
+        logger.info("action: registerDeviceDefault, state: succeeded");
+        return response;
     }
 
     /**
@@ -95,27 +103,15 @@ public class PushRegistrationController {
             PowerAuthSignatureTypes.POSSESSION_KNOWLEDGE
     })
     public Response registerDeviceToken(@RequestBody ObjectRequest<PushRegisterRequest> request, @Parameter(hidden = true) PowerAuthApiAuthentication apiAuthentication) throws PowerAuthAuthenticationException, InvalidRequestObjectException, PushRegistrationFailedException {
-        return registerDeviceImpl(request, apiAuthentication);
-    }
-
-    private Response registerDeviceImpl(
-            ObjectRequest<PushRegisterRequest> request,
-            PowerAuthApiAuthentication apiAuthentication)
-            throws PowerAuthAuthenticationException, PushRegistrationFailedException, InvalidRequestObjectException {
-
-        // Check if the authentication object is present
         if (apiAuthentication == null) {
             logger.error("Unable to verify device registration");
             throw new PowerAuthAuthenticationException("Unable to verify device registration");
         }
 
-        // Check if the context is authenticated - if it is, add activation ID.
-        // This assures that the activation is assigned with a correct device.
-        final String userId = apiAuthentication.getUserId();
-        final String activationId = apiAuthentication.getActivationContext().getActivationId();
-        final String applicationId = apiAuthentication.getApplicationId();
-
-        return pushRegistrationService.registerDevice(request, userId, activationId, applicationId);
+        logger.info("action: registerDeviceToken, state: initiated, userId: {}", apiAuthentication.getUserId());
+        final Response response = pushRegistrationService.registerDevice(request, apiAuthentication);
+        logger.info("action: registerDeviceToken, state: succeeded");
+        return response;
     }
 
 }
