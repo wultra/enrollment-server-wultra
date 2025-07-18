@@ -34,14 +34,14 @@ import com.wultra.app.onboardingserver.impl.service.internal.JsonSerializationSe
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.util.List;
 import java.util.Optional;
 
 import static com.wultra.app.enrollmentserver.model.enumeration.IdentityVerificationPhase.PRESENCE_CHECK;
-import static com.wultra.app.enrollmentserver.model.enumeration.IdentityVerificationStatus.*;
+import static com.wultra.app.enrollmentserver.model.enumeration.IdentityVerificationStatus.NOT_INITIALIZED;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
 
@@ -55,16 +55,16 @@ import static org.mockito.Mockito.*;
 @ActiveProfiles("test")
 class PresenceCheckServiceTest {
 
-    @MockBean
+    @MockitoBean
     private IdentityVerificationService identityVerificationService;
 
-    @MockBean
+    @MockitoBean
     private DocumentVerificationRepository documentVerificationRepository;
 
-    @MockBean
+    @MockitoBean
     private PresenceCheckLimitService presenceCheckLimitService;
 
-    @MockBean
+    @MockitoBean
     private PresenceCheckProvider presenceCheckProvider;
 
     @Autowired
