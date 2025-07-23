@@ -19,7 +19,7 @@
 package com.wultra.app.enrollmentserver.mock;
 
 import com.wultra.app.enrollmentserver.impl.service.DelegatingActivationCodeHandler;
-import com.wultra.security.powerauth.client.PowerAuthClient;
+import com.wultra.security.powerauth.client.v3.PowerAuthClient;
 import com.wultra.security.powerauth.client.model.entity.Application;
 import com.wultra.security.powerauth.client.model.error.PowerAuthClientException;
 import com.wultra.security.powerauth.client.model.response.GetApplicationListResponse;
