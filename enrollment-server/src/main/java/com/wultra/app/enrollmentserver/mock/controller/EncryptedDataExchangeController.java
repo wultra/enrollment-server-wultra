@@ -159,6 +159,29 @@ public class EncryptedDataExchangeController {
     }
 
     /**
+     * Sample encrypted data exchange of raw data as byte[].
+     *
+     * @param requestData Request with raw byte[] data.
+     * @param encryptionContext Encryption context.
+     * @return Data exchange response.
+     * @throws PowerAuthEncryptionException In case encryption or decryption fails.
+     */
+    @RequestMapping(value = "raw", method = RequestMethod.POST)
+    @PowerAuthEncryption(scope = EncryptionScope.ACTIVATION_SCOPE)
+    public byte[] exchangeSignedAndEncryptedDataRaw(@EncryptedRequestBody byte[] requestData,
+                                                    EncryptionContext encryptionContext) throws PowerAuthEncryptionException {
+
+
+        if (encryptionContext == null) {
+            logger.error("Encryption failed");
+            throw new PowerAuthEncryptionException();
+        }
+
+        // Return data back for verification
+        return requestData;
+    }
+
+    /**
      * Sample signed and encrypted data exchange of raw data as byte[].
      *
      * @param requestData Request with raw byte[] data.
