@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package com.wultra.app.enrollmentserver.mock.controller.v3;
+package com.wultra.app.enrollmentserver.mock.controller;
 
 import com.wultra.app.enrollmentserver.mock.model.request.DataExchangeRequest;
 import com.wultra.app.enrollmentserver.mock.model.response.DataExchangeResponse;
@@ -48,7 +48,7 @@ import org.springframework.web.bind.annotation.RestController;
  * @author Roman Strobl, roman.strobl@wultra.com
  */
 @RestController("encryptedDataExchangeControllerV3")
-@RequestMapping(value = "/exchange")
+@RequestMapping({"exchange/v3", "exchange/v4"})
 @Slf4j
 public class EncryptedDataExchangeController {
 
@@ -60,7 +60,7 @@ public class EncryptedDataExchangeController {
      * @return Data exchange response.
      * @throws PowerAuthEncryptionException In case encryption or decryption fails.
      */
-    @RequestMapping(value = "v3/application", method = RequestMethod.POST)
+    @RequestMapping(value = "application", method = RequestMethod.POST)
     @PowerAuthEncryption(scope = EncryptionScope.APPLICATION_SCOPE)
     public DataExchangeResponse exchangeInApplicationScope(@EncryptedRequestBody DataExchangeRequest request,
                                              EncryptionContext encryptionContext) throws PowerAuthEncryptionException {
@@ -82,7 +82,7 @@ public class EncryptedDataExchangeController {
      * @return Data exchange response.
      * @throws PowerAuthEncryptionException In case encryption or decryption fails.
      */
-    @RequestMapping(value = "v3/activation", method = RequestMethod.POST)
+    @RequestMapping(value = "activation", method = RequestMethod.POST)
     @PowerAuthEncryption(scope = EncryptionScope.ACTIVATION_SCOPE)
     public DataExchangeResponse exchangeInActivationScope(@EncryptedRequestBody DataExchangeRequest request,
                                             EncryptionContext encryptionContext) throws PowerAuthEncryptionException {
@@ -106,8 +106,8 @@ public class EncryptedDataExchangeController {
      * @throws PowerAuthAuthenticationException In case signature validation fails.
      * @throws PowerAuthEncryptionException In case encryption or decryption fails.
      */
-    @RequestMapping(value = "v3/signed", method = RequestMethod.POST)
-    @PowerAuth(resourceId = "/exchange/v3/signed")
+    @RequestMapping(value = "signed", method = RequestMethod.POST)
+    @PowerAuth(resourceId = "/exchange/signed")
     @PowerAuthEncryption(scope = EncryptionScope.ACTIVATION_SCOPE)
     public DataExchangeResponse exchangeSignedAndEncryptedData(@EncryptedRequestBody DataExchangeRequest request,
                                                                 EncryptionContext encryptionContext,
@@ -137,8 +137,8 @@ public class EncryptedDataExchangeController {
      * @throws PowerAuthAuthenticationException In case signature validation fails.
      * @throws PowerAuthEncryptionException In case encryption or decryption fails.
      */
-    @RequestMapping(value = "v3/signed/string", method = RequestMethod.POST)
-    @PowerAuth(resourceId = "/exchange/v3/signed/string")
+    @RequestMapping(value = "signed/string", method = RequestMethod.POST)
+    @PowerAuth(resourceId = "/exchange/signed/string")
     @PowerAuthEncryption(scope = EncryptionScope.ACTIVATION_SCOPE)
     public String exchangeSignedAndEncryptedDataString(@EncryptedRequestBody String requestData,
                                                                        EncryptionContext encryptionContext,
@@ -168,8 +168,8 @@ public class EncryptedDataExchangeController {
      * @throws PowerAuthAuthenticationException In case signature validation fails.
      * @throws PowerAuthEncryptionException In case encryption or decryption fails.
      */
-    @RequestMapping(value = "v3/signed/raw", method = RequestMethod.POST)
-    @PowerAuth(resourceId = "/exchange/v3/signed/raw")
+    @RequestMapping(value = "signed/raw", method = RequestMethod.POST)
+    @PowerAuth(resourceId = "/exchange/signed/raw")
     @PowerAuthEncryption(scope = EncryptionScope.ACTIVATION_SCOPE)
     public byte[] exchangeSignedAndEncryptedDataRaw(@EncryptedRequestBody byte[] requestData,
                                                                EncryptionContext encryptionContext,
@@ -199,8 +199,8 @@ public class EncryptedDataExchangeController {
      * @throws PowerAuthAuthenticationException In case signature validation fails.
      * @throws PowerAuthEncryptionException In case encryption or decryption fails.
      */
-    @RequestMapping(value = "v3/signed/generics", method = RequestMethod.POST)
-    @PowerAuth(resourceId = "/exchange/v3/signed/generics")
+    @RequestMapping(value = "signed/generics", method = RequestMethod.POST)
+    @PowerAuth(resourceId = "/exchange/signed/generics")
     @PowerAuthEncryption(scope = EncryptionScope.ACTIVATION_SCOPE)
     public ObjectResponse<DataExchangeResponse> exchangeSignedAndEncryptedDataGenerics(@EncryptedRequestBody ObjectRequest<DataExchangeRequest> request,
                                                                                        EncryptionContext encryptionContext,
