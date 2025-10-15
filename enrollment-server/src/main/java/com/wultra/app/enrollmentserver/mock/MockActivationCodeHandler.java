@@ -19,16 +19,14 @@
 package com.wultra.app.enrollmentserver.mock;
 
 import com.wultra.app.enrollmentserver.impl.service.DelegatingActivationCodeHandler;
-import com.wultra.security.powerauth.client.v3.PowerAuthClient;
 import com.wultra.security.powerauth.client.model.entity.Application;
 import com.wultra.security.powerauth.client.model.error.PowerAuthClientException;
 import com.wultra.security.powerauth.client.model.response.GetApplicationListResponse;
+import com.wultra.security.powerauth.client.v3.PowerAuthClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-
-import java.util.List;
 
 /**
  * Mock activation code handler.
@@ -48,31 +46,26 @@ public class MockActivationCodeHandler implements DelegatingActivationCodeHandle
     }
 
     @Override
-    public String fetchDestinationApplicationId(String applicationId, String sourceAppId, List<String> activationFlags, List<String> applicationRoles) {
-        logger.info("Destination application ID requested in activation code handler for application: {}, source application ID: {}", applicationId, sourceAppId);
+    public TransferConfigurationResponse fetchTransferConfiguration(final TransferConfigurationRequest request) {
+        final String sourceApplicationId = request.sourceApplicationId();
+        final String targetApplicationId = request.targetApplicationId();
+
+        logger.info("Destination application ID requested in activation code handler for application: {}, source application ID: {}", targetApplicationId, sourceApplicationId);
         try {
             final GetApplicationListResponse response = powerAuthClient.getApplicationList();
             for (Application application : response.getApplications()) {
-                if (application.getApplicationId().equals(applicationId)) {
+                if (application.getApplicationId().equals(targetApplicationId)) {
                     logger.info("Destination application ID was resolved: {}", application.getApplicationId());
-                    return application.getApplicationId();
+                    return TransferConfigurationResponse.builder()
+                            .applicationId(application.getApplicationId())
+                            .type(ActivationTransferType.SPAWN)
+                            .build();
                 }
             }
         } catch (PowerAuthClientException ex) {
             logger.error(ex.getMessage(), ex);
         }
-        logger.error("Destination application was not found: {}", applicationId);
+        logger.error("Destination application was not found: {}", targetApplicationId);
         return null;
-    }
-
-    @Override
-    public List<String> addActivationFlags(String sourceActivationId, List<String> sourceActivationFlags, String userId, String applicationId, String sourceAppId, List<String> sourceApplicationRoles, String destinationAppId, String destinationActivationId, String activationCode, String activationCodeSignature) {
-        logger.info("No activation flags will be added by activation code handler for activation ID: {}", destinationActivationId);
-        return null;
-    }
-
-    @Override
-    public void didReturnActivationCode(String sourceActivationId, String userId, String applicationId, String sourceAppId, String destinationAppId, String destinationActivationId, String activationCode, String activationCodeSignature) {
-        logger.info("Activation was successfully created in activation code handler, activation ID: {}, activation code: {}", destinationActivationId, activationCode);
     }
 }

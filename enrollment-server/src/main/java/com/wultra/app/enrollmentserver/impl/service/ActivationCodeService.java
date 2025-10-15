@@ -25,19 +25,19 @@ import com.wultra.app.enrollmentserver.impl.service.converter.ActivationCodeConv
 import com.wultra.app.enrollmentserver.model.validator.ActivationCodeRequestValidator;
 import com.wultra.core.audit.base.Audit;
 import com.wultra.core.audit.base.model.AuditDetail;
-import com.wultra.security.powerauth.client.v3.PowerAuthClient;
-import com.wultra.security.powerauth.client.model.enumeration.ActivationOtpValidation;
+import com.wultra.security.powerauth.client.model.enumeration.ActivationTransferType;
+import com.wultra.security.powerauth.client.model.enumeration.CommitPhase;
 import com.wultra.security.powerauth.client.model.error.PowerAuthClientException;
-import com.wultra.security.powerauth.client.model.request.AddActivationFlagsRequest;
 import com.wultra.security.powerauth.client.model.request.InitActivationRequest;
 import com.wultra.security.powerauth.client.model.response.InitActivationResponse;
+import com.wultra.security.powerauth.client.v3.PowerAuthClient;
 import com.wultra.security.powerauth.rest.api.spring.authentication.PowerAuthApiAuthentication;
 import com.wultra.security.powerauth.rest.api.spring.service.HttpCustomizationService;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
+import java.util.Map;
 
 /**
  * Service responsible for fetching the new activation codes.
@@ -46,6 +46,7 @@ import java.util.List;
  */
 @Service
 @Slf4j
+@AllArgsConstructor
 public class ActivationCodeService {
 
     private final PowerAuthClient powerAuthClient;
@@ -55,37 +56,6 @@ public class ActivationCodeService {
     private DelegatingActivationCodeHandler delegatingActivationCodeHandler;
 
     private final Audit audit;
-
-    /**
-     * Autowiring constructor.
-     *
-     * @param powerAuthClient PowerAuth Client instance.
-     * @param activationCodeConverter Activation code converter class.
-     * @param httpCustomizationService HTTP customization service.
-     * @param audit Audit.
-     */
-    @Autowired
-    public ActivationCodeService(
-            final PowerAuthClient powerAuthClient,
-            final ActivationCodeConverter activationCodeConverter,
-            final HttpCustomizationService httpCustomizationService,
-            final Audit audit) {
-
-        this.powerAuthClient = powerAuthClient;
-        this.activationCodeConverter = activationCodeConverter;
-        this.httpCustomizationService = httpCustomizationService;
-        this.audit = audit;
-    }
-
-    /**
-     * Set delegating activation code handler via auto-wiring.
-     *
-     * @param delegatingActivationCodeHandler Delegating activation code handler bean.
-     */
-    @Autowired(required = false)
-    public void setActivationCodeDelegate(DelegatingActivationCodeHandler delegatingActivationCodeHandler) {
-        this.delegatingActivationCodeHandler = delegatingActivationCodeHandler;
-    }
 
     /**
      * Request activation code for provided OTP value, user ID and app ID.
@@ -98,20 +68,10 @@ public class ActivationCodeService {
      */
     public ActivationCodeResponse requestActivationCode(ActivationCodeRequest request, PowerAuthApiAuthentication apiAuthentication) throws InvalidRequestObjectException, ActivationCodeException {
 
-        // Fetch information from the authentication object
-        final String sourceActivationId = apiAuthentication.getActivationContext().getActivationId();
         final String sourceUserId = apiAuthentication.getUserId();
-        final String sourceAppId = apiAuthentication.getApplicationId();
-        final List<String> sourceActivationFlags = apiAuthentication.getActivationContext().getActivationFlags();
-        final List<String> sourceApplicationRoles = apiAuthentication.getApplicationRoles();
+        final String sourceApplicationId = apiAuthentication.getApplicationId();
 
         logger.info("Activation code registration started, user ID: {}", sourceUserId);
-
-        // Verify that delegating activation code handler is implemented
-        if (delegatingActivationCodeHandler == null) {
-            logger.error("Missing delegating activation code handler implementation");
-            throw new ActivationCodeException();
-        }
 
         // Validate the request object
         final String error = ActivationCodeRequestValidator.validate(request);
@@ -120,24 +80,32 @@ public class ActivationCodeService {
             throw new InvalidRequestObjectException();
         }
 
-        // Get the request parameters
-        final String otp = request.getOtp();
-        final String applicationId = request.getApplicationId();
+        final DelegatingActivationCodeHandler.TransferConfigurationResponse response = delegatingActivationCodeHandler.fetchTransferConfiguration(DelegatingActivationCodeHandler.TransferConfigurationRequest.builder()
+                .targetApplicationId(request.getApplicationId())
+                .sourceApplicationId(sourceApplicationId)
+                .build());
 
-        final String destinationAppId = delegatingActivationCodeHandler.fetchDestinationApplicationId(applicationId, sourceAppId, sourceActivationFlags, sourceApplicationRoles);
-        if (destinationAppId == null) {
-            logger.error("Invalid application ID. The provided source app ID: {} cannot activate the destination app ID: {}.", sourceAppId, applicationId);
-            throw new ActivationCodeException();
+        if (response == null) {
+            throw new ActivationCodeException("Invalid application ID. The provided source application ID: %s cannot activate the target application ID: %s.".formatted(sourceApplicationId, request.getApplicationId()));
         }
+
+        final String targetApplicationId = response.applicationId();
 
         try {
             // Create a new activation
-            logger.info("Calling PowerAuth Server with new activation request, user ID: {}, app ID: {}", sourceUserId, destinationAppId);
+            logger.info("Calling PowerAuth Server with new activation request, user ID: {}, application ID: {}", sourceUserId, targetApplicationId);
             final InitActivationRequest initRequest = new InitActivationRequest();
             initRequest.setUserId(sourceUserId);
-            initRequest.setApplicationId(destinationAppId);
-            initRequest.setActivationOtpValidation(ActivationOtpValidation.ON_KEY_EXCHANGE);
-            initRequest.setActivationOtp(otp);
+            initRequest.setApplicationId(response.applicationId());
+            initRequest.setParentActivationId(apiAuthentication.getActivationContext().getActivationId());
+            initRequest.setTransferType(convert(response.type()));
+            initRequest.setCommitPhase(CommitPhase.ON_KEY_EXCHANGE);
+            initRequest.setActivationOtp(request.getOtp());
+            initRequest.setFlags(response.initialFlags());
+            initRequest.setAdditionalData(Map.of(
+                    "sourceApplicationId", sourceApplicationId,
+                    "targetApplicationId", targetApplicationId,
+                    "transferType", response.type().name()));
 
             final InitActivationResponse iar = powerAuthClient.initActivation(
                     initRequest,
@@ -147,36 +115,17 @@ public class ActivationCodeService {
             logger.info("Successfully obtained a new activation with ID: {}", iar.getActivationId());
             auditInitActivation(iar);
 
-            // Notify systems about newly created activation
-            delegatingActivationCodeHandler.didReturnActivationCode(
-                    sourceActivationId, sourceUserId, applicationId, sourceAppId, destinationAppId,
-                    iar.getActivationId(), iar.getActivationCode(), iar.getActivationSignature()
-            );
-
-            // Add the activation flags
-            final List<String> flags = delegatingActivationCodeHandler.addActivationFlags(
-                    sourceActivationId, sourceActivationFlags, applicationId, sourceUserId, sourceAppId, sourceApplicationRoles, destinationAppId,
-                    iar.getActivationId(), iar.getActivationCode(), iar.getActivationSignature()
-            );
-            if (flags != null && !flags.isEmpty()) {
-                logger.info("Calling PowerAuth Server to add activation flags to activation ID: {}, flags: {}.", iar.getActivationId(), flags.toArray());
-                final AddActivationFlagsRequest addRequest = new AddActivationFlagsRequest();
-                addRequest.setActivationId(iar.getActivationId());
-                addRequest.getActivationFlags().addAll(flags);
-                powerAuthClient.addActivationFlags(addRequest,
-                        httpCustomizationService.getQueryParams(),
-                        httpCustomizationService.getHttpHeaders()
-                );
-                logger.info("Successfully added flags to activation ID: {}.", iar.getActivationId());
-            } else {
-                logger.info("Activation with ID: {} has no additional flags.", iar.getActivationId());
-            }
-
             return activationCodeConverter.convert(iar);
         } catch (PowerAuthClientException e) {
-            logger.error("Unable to call upstream service.", e);
-            throw new ActivationCodeException();
+            throw new ActivationCodeException("Unable to call PowerAuth.", e);
         }
+    }
+
+    private static ActivationTransferType convert(final DelegatingActivationCodeHandler.ActivationTransferType source) {
+        return switch (source) {
+            case SPAWN -> ActivationTransferType.SPAWN;
+            case MOVE -> ActivationTransferType.MOVE;
+        };
     }
 
     private void auditInitActivation(final InitActivationResponse response) {
