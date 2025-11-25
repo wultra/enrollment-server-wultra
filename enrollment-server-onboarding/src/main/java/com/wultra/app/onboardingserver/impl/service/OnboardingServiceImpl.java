@@ -57,6 +57,7 @@ import com.wultra.app.onboardingserver.provider.model.response.ApproveConsentRes
 import com.wultra.app.onboardingserver.provider.model.response.LookupUserResponse;
 import com.wultra.core.http.common.request.RequestContext;
 import com.wultra.core.rest.model.base.response.Response;
+import com.wultra.security.powerauth.client.model.response.InitActivationResponse;
 import com.wultra.security.powerauth.crypto.lib.generator.IdentifierGenerator;
 import com.wultra.security.powerauth.crypto.lib.model.exception.CryptoProviderException;
 import com.wultra.security.powerauth.rest.api.spring.encryption.EncryptionContext;
@@ -199,20 +200,26 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
                 .userId(userId)
                 .build();
 
+        final InitActivationResponse initActivationResponse = initActivation(initActivationContext);
+        process.setActivationId(initActivationResponse.getActivationId());
+        onboardingProcessRepository.save(process);
+
         return OnboardingStartResponse.builder()
                 .processId(process.getId())
                 .onboardingStatus(process.getStatus())
                 .config(integrationConfigDto)
-                .activationCode(fetchActivationCode(initActivationContext))
+                .activationCode(initActivationResponse.getActivationCode())
                 .build();
     }
 
-    private String fetchActivationCode(final ActivationService.InitActivationContext request) throws RemoteCommunicationException {
+    private InitActivationResponse initActivation(final ActivationService.InitActivationContext request) throws RemoteCommunicationException {
         if (request.userId() != null) {
             return activationService.initActivation(request);
         } else {
             logger.info("User ID is null, generating fake activationCode");
-            return generateActivationCode();
+            final InitActivationResponse response = new InitActivationResponse();
+            response.setActivationCode(generateActivationCode());
+            return response;
         }
     }
 
@@ -373,6 +380,7 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
         final String userId = process.getUserId();
         final ConsentTextRequest providerRequest = ConsentTextRequest.builder()
                 .processId(request.getProcessId())
+                .processType(process.getProcessConfiguration().getProcessType())
                 .userId(userId)
                 .consentType(request.getConsentType())
                 .locale(LocaleContextHolder.getLocale())
@@ -399,6 +407,7 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
         final String userId = process.getUserId();
         final ApproveConsentRequest providerRequest = ApproveConsentRequest.builder()
                 .processId(request.getProcessId())
+                .processType(process.getProcessConfiguration().getProcessType())
                 .userId(userId)
                 .consentType(request.getConsentType())
                 .approved(request.isApproved())
@@ -455,6 +464,7 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
             final LookupUserRequest lookupUserRequest = LookupUserRequest.builder()
                     .identification(identification)
                     .processId(process.getId())
+                    .processType(process.getProcessConfiguration().getProcessType())
                     .build();
             final LookupUserResponse response = onboardingProvider.lookupUser(lookupUserRequest);
             auditService.auditOnboardingProvider(process, "Looked up user: {}", response.getUserId());
@@ -571,6 +581,7 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
     private void sendOtp(final OnboardingProcessEntity process, final String otpCode) throws OnboardingOtpDeliveryException {
         final SendOtpCodeRequest sendOtpCodeRequest = SendOtpCodeRequest.builder()
                 .processId(process.getId())
+                .processType(process.getProcessConfiguration().getProcessType())
                 .userId(process.getUserId())
                 .otpCode(otpCode)
                 .resend(false)
@@ -590,6 +601,7 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
         final String userId = process.getUserId();
         final SendOtpCodeRequest sendOtpCodeRequest = SendOtpCodeRequest.builder()
                 .processId(process.getId())
+                .processType(process.getProcessConfiguration().getProcessType())
                 .userId(userId)
                 .otpCode(otpCode)
                 .locale(LocaleContextHolder.getLocale())
