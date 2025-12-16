@@ -60,7 +60,7 @@ jobs:
           cd ${{ matrix.app }}
           TIMESTAMP=$(date +%Y.%m.%d)
           IMAGE_VERSION=${TIMESTAMP}-${{ github.sha }}
-          IMAGE_NAME=${{ matrix.app }}:${IMAGE_VERSION}
+          IMAGE_NAME=${{ matrix.app }}-wultra:${IMAGE_VERSION}
           echo "IMAGE_VERSION=$IMAGE_VERSION" >> $GITHUB_ENV
           echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
       - name: Set up QEMU
