@@ -31,6 +31,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Mock onboarding provider for testing purposes.
@@ -47,7 +48,7 @@ public class MockOnboardingProvider implements OnboardingProvider {
 
     @Override
     public LookupUserResponse lookupUser(LookupUserRequest request) throws OnboardingProviderException {
-        final Map<String, Object> identification = request.getIdentification();
+        final Map<String, Object> identification = Objects.requireNonNullElse(request.getIdentification(), Map.of());
         logger.info("Lookup user called: {}", identification);
 
         if (Boolean.TRUE.equals(identification.get("shouldFail"))) {
@@ -56,7 +57,7 @@ public class MockOnboardingProvider implements OnboardingProvider {
         }
 
         return LookupUserResponse.builder()
-                .userId("mockuser_" + identification.get("clientNumber"))
+                .userId("mockuser_" + identification.getOrDefault("clientNumber", "n/a"))
                 .consentRequired(true)
                 .build();
     }
