@@ -20,10 +20,7 @@ package com.wultra.app.onboardingserver.mock;
 import com.wultra.app.onboardingserver.errorhandling.OnboardingProviderException;
 import com.wultra.app.onboardingserver.provider.OnboardingProvider;
 import com.wultra.app.onboardingserver.provider.model.request.*;
-import com.wultra.app.onboardingserver.provider.model.response.ApproveConsentResponse;
-import com.wultra.app.onboardingserver.provider.model.response.EvaluateClientResponse;
-import com.wultra.app.onboardingserver.provider.model.response.LookupUserResponse;
-import com.wultra.app.onboardingserver.provider.model.response.ProcessEventResponse;
+import com.wultra.app.onboardingserver.provider.model.response.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -114,5 +111,12 @@ public class MockOnboardingProvider implements OnboardingProvider {
         logger.info("Processing event type: {} for process ID: {}, user ID: {}, identityVerification ID: {}, data: {}",
                 type, processId, userId, identityVerificationId, eventData);
         return ProcessEventResponse.builder().build();
+    }
+
+    @Override
+    public ApproveClientResponse approveClient(final ApproveClientRequest request) {
+        return ApproveClientResponse.builder()
+                .result(ApproveClientResponse.ApprovalResult.WAIT)
+                .build();
     }
 }
