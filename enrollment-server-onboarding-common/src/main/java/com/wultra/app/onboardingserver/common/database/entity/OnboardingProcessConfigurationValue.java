@@ -17,6 +17,9 @@
  */
 package com.wultra.app.onboardingserver.common.database.entity;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.Builder;
 import lombok.extern.jackson.Jacksonized;
 
@@ -32,8 +35,9 @@ import java.util.Set;
  * @param otpForIdentityVerification Whether the OTP is required for identity verification - request OTP for the next process step.
  * @param useTemporaryActivation     Whether the onboarding process should use two activations, and exchange the temporary one for the permanent one.
  * @param activationType             Whether the activation is initialized by the onboarding server or by the SDK.
- * @param approvalEnabled           Whether to call bank systems to approve the client.
+ * @param approvalEnabled            Whether to call bank systems to approve the client.
  * @param documents                  List of documents.
+ * @param clientEvaluationEnabled    Whether to call bank systems to evaluate the client.
  * @author Lubos Racansky, lubos.racansky@wultra.com
  */
 @Jacksonized
@@ -43,9 +47,10 @@ public record OnboardingProcessConfigurationValue(
         boolean otpForIdentification,
         boolean otpForIdentityVerification,
         boolean useTemporaryActivation,
-        Documents documents,
+        @Valid Documents documents,
         ActivationType activationType,
-        boolean approvalEnabled
+        boolean approvalEnabled,
+        boolean clientEvaluationEnabled
 ) implements Serializable {
 
     @Serial
@@ -60,6 +65,7 @@ public record OnboardingProcessConfigurationValue(
             documents = Documents.builder().build();
             activationType = ActivationType.IDENTITY;
             approvalEnabled = false;
+            clientEvaluationEnabled = true;
         }
     }
 
@@ -73,7 +79,7 @@ public record OnboardingProcessConfigurationValue(
     @Builder
     public record Documents(
             byte totalRequiredDocumentsCount,
-            Set<Group> groups
+            @Valid Set<Group> groups
     ) implements Serializable {
 
         @Serial
@@ -97,7 +103,7 @@ public record OnboardingProcessConfigurationValue(
     @Builder
     public record Group(
             byte requiredDocumentsCount,
-            Set<Document> items
+            @Valid Set<Document> items
     ) implements Serializable {
 
         @Serial
@@ -116,12 +122,14 @@ public record OnboardingProcessConfigurationValue(
      *
      * @param type      document type
      * @param sideCount info if the document contains one or two sides
+     * @param country   document country as an ISO 3166-1 alpha-3 code
      */
     @Jacksonized
     @Builder
     public record Document(
             DocumentType type,
-            byte sideCount
+            @Min(1) @Max(2) byte sideCount,
+            String country
     ) implements Serializable {
 
         @Serial

@@ -27,9 +27,6 @@ import com.wultra.app.onboardingserver.common.database.entity.DocumentResultEnti
 import com.wultra.app.onboardingserver.common.database.entity.DocumentVerificationEntity;
 import com.wultra.app.onboardingserver.common.database.entity.ProcessedDocumentDataEntity;
 import com.wultra.app.onboardingserver.common.errorhandling.RemoteCommunicationException;
-import com.wultra.security.powerauth.client.model.error.PowerAuthClientException;
-import com.wultra.security.powerauth.client.model.response.v3.GetActivationStatusResponse;
-import com.wultra.security.powerauth.client.v3.PowerAuthClient;
 import okhttp3.mockwebserver.MockWebServer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -41,7 +38,6 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,7 +49,6 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.when;
 
 /**
  * Integration tests for Microblink document verification provider.
@@ -124,9 +119,6 @@ class MicroblinkDocumentVerificationProviderIntTest {
 
     @Autowired
     private DocumentResultRepository documentResultRepository;
-
-    @MockitoBean
-    private PowerAuthClient powerAuthClient;
 
     private OwnerId ownerId;
 
@@ -244,53 +236,27 @@ class MicroblinkDocumentVerificationProviderIntTest {
     }
 
     @Test
-    void testInitVerificationSdk_platformFetchedFromPowerAuthServer_responseWithLicenseKey() throws RemoteCommunicationException, PowerAuthClientException {
+    void testInitVerificationSdk_sdkConfigNotFound_responseWithoutLicenseKey() {
         // given
-        final var response = new GetActivationStatusResponse();
-        response.setPlatform("android");
-        when(powerAuthClient.getActivationStatus(ACTIVATION_ID)).thenReturn(response);
+        final var initParams = Map.of("origin", "app1", "platform", "android");
 
         // when
-        final var result = microblinkDocumentVerificationProvider.initVerificationSdk(ownerId, Map.of());
+        final var result = microblinkDocumentVerificationProvider.initVerificationSdk(ownerId, initParams);
 
         // then
-        assertEquals(new VerificationSdkInfo(Map.of("license-key", "dummy-android-license-key")), result);
+        assertEquals(new VerificationSdkInfo(), result);
     }
 
     @Test
-    void testInitVerificationSdk_platformFetchedFromPowerAuthServerFail_exceptionIsThrown() throws PowerAuthClientException {
+    void testInitVerificationSdk_sdkConfigFound_responseWithLicenseKey() {
         // given
-        when(powerAuthClient.getActivationStatus(ACTIVATION_ID)).thenThrow(new PowerAuthClientException("Test exception"));
+        final var initParams = Map.of("origin", "app1", "platform", "ios");
 
         // when
-        final var exception = assertThrows(RemoteCommunicationException.class, () -> microblinkDocumentVerificationProvider.initVerificationSdk(ownerId, Map.of()));
+        final var result = microblinkDocumentVerificationProvider.initVerificationSdk(ownerId, initParams);
 
         // then
-        assertEquals("Error when fetching mobile platform", exception.getMessage());
-    }
-
-    @Test
-    void testInitVerificationSdk_androidMobilePlatform_responseWithLicenseKey() throws RemoteCommunicationException {
-        // given
-        // -
-
-        // when
-        final var result = microblinkDocumentVerificationProvider.initVerificationSdk(ownerId, Map.of("platform", "android"));
-
-        // then
-        assertEquals(new VerificationSdkInfo(Map.of("license-key", "dummy-android-license-key")), result);
-    }
-
-    @Test
-    void testInitVerificationSdk_iosMobilePlatform_responseWithLicenseKey() throws RemoteCommunicationException {
-        // given
-        // -
-
-        // when
-        final var result = microblinkDocumentVerificationProvider.initVerificationSdk(ownerId, Map.of("platform", "ios"));
-
-        // then
-        assertEquals(new VerificationSdkInfo(Map.of("license-key", "dummy-ios-license-key")), result);
+        assertEquals(new VerificationSdkInfo(Map.of("license-key", "abc")), result);
     }
 
     @Test
@@ -514,9 +480,11 @@ class MicroblinkDocumentVerificationProviderIntTest {
                 .findFirst()
                 .orElseThrow();
 
+        final var frontNormalizedExtractedData = buildIdCardFrontNormalizedExtractedDataJson();
+
         assertDoesNotThrow(() -> UUID.fromString(frontDocument.getUploadId()));
         assertNull(frontDocument.getRejectReason());
-        assertEquals(idCardFrontExtractionJson, frontDocument.getExtractedData());
+        assertEquals(frontNormalizedExtractedData, frontDocument.getExtractedData());
         assertEquals(idCardPassValidationResult, frontDocument.getValidationResult());
 
         final var backDocument = actualDocuments.stream()
@@ -524,9 +492,11 @@ class MicroblinkDocumentVerificationProviderIntTest {
                 .findFirst()
                 .orElseThrow();
 
+        final var backNormalizedExtractedData = buildIdCardBackNormalizedExtractedDataJson();
+
         assertDoesNotThrow(() -> UUID.fromString(backDocument.getUploadId()));
         assertNull(backDocument.getRejectReason());
-        assertEquals(idCardBackExtractionJson, backDocument.getExtractedData());
+        assertEquals(backNormalizedExtractedData, backDocument.getExtractedData());
         assertEquals(idCardPassValidationResult, backDocument.getValidationResult());
     }
 
@@ -543,9 +513,11 @@ class MicroblinkDocumentVerificationProviderIntTest {
                 .findFirst()
                 .orElseThrow();
 
+        final var frontNormalizedExtractedData = buildIdCardFrontNormalizedExtractedDataJson();
+
         assertDoesNotThrow(() -> UUID.fromString(frontDocument.getUploadId()));
         assertEquals("[The provided document is fully cropped which is not in line with BlinkID Verify image quality guidelines.]", frontDocument.getRejectReason());
-        assertEquals(idCardFrontExtractionJson, frontDocument.getExtractedData());
+        assertEquals(frontNormalizedExtractedData, frontDocument.getExtractedData());
         assertEquals(idCardRejectValidationResult, frontDocument.getValidationResult());
 
         final var backDocument = actualDocuments.stream()
@@ -553,9 +525,11 @@ class MicroblinkDocumentVerificationProviderIntTest {
                 .findFirst()
                 .orElseThrow();
 
+        final var backNormalizedExtractedData = buildIdCardBackNormalizedExtractedDataJson();
+
         assertDoesNotThrow(() -> UUID.fromString(backDocument.getUploadId()));
         assertEquals("[The provided document is fully cropped which is not in line with BlinkID Verify image quality guidelines.]", backDocument.getRejectReason());
-        assertEquals(idCardBackExtractionJson, backDocument.getExtractedData());
+        assertEquals(backNormalizedExtractedData, backDocument.getExtractedData());
         assertEquals(idCardRejectValidationResult, backDocument.getValidationResult());
     }
 
@@ -571,9 +545,11 @@ class MicroblinkDocumentVerificationProviderIntTest {
                 .findFirst()
                 .orElseThrow();
 
+        final var passportNormalizedExtractedData = buildPassportNormalizedExtractedDataJson();
+
         assertDoesNotThrow(() -> UUID.fromString(document.getUploadId()));
         assertNull(document.getRejectReason());
-        assertEquals(passportPassExtractionJson, document.getExtractedData());
+        assertEquals(passportNormalizedExtractedData, document.getExtractedData());
         assertEquals(passportPassValidationResult, document.getValidationResult());
     }
 
@@ -761,5 +737,20 @@ class MicroblinkDocumentVerificationProviderIntTest {
         assertEquals(expectedValidationResult, documentResult.getVerificationResult());
         assertNull(documentResult.getErrorDetail());
         assertEquals(expectedExtractedData, documentResult.getExtractedData());
+    }
+
+    private static String buildPassportNormalizedExtractedDataJson() {
+        return """
+                {"givenNames":"PRENUMELE","surname":"NUMELE","dateOfBirth":null,"placeOfBirth":null,"country":"MDA","sex":"X","nationality":"MDA ZZ LL AAAA","personalNumber":null,"documentNumber":"EA0000000","dateOfIssue":null,"dateOfExpiry":"2025-11-14","authority":null}""";
+    }
+
+    private static String buildIdCardFrontNormalizedExtractedDataJson() {
+        return """
+                {"givenNames":"PRENUMELE","surname":"NUMELE","dateOfBirth":null,"placeOfBirth":null,"country":"MDA","sex":"X","nationality":"MDA ZZ LL AAAA","personalNumber":null,"documentNumber":"EA0000000","dateOfIssue":null,"dateOfExpiry":"2025-10-13","authority":null}""";
+    }
+
+    private static String buildIdCardBackNormalizedExtractedDataJson() {
+        return """
+                {"givenNames":null,"surname":null,"dateOfBirth":null,"placeOfBirth":null,"country":"MDA","sex":null,"nationality":null,"personalNumber":null,"documentNumber":null,"dateOfIssue":null,"dateOfExpiry":null,"authority":null}""";
     }
 }

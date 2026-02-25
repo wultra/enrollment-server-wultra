@@ -17,8 +17,12 @@
  */
 package com.wultra.app.onboardingserver.provider.rest;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+import lombok.Builder;
 import lombok.Data;
 
+import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -28,6 +32,11 @@ import java.util.List;
  */
 @Data
 class ClientEvaluateRequestDto {
+
+    /**
+     * ISO-8601
+     */
+    private static final String DATE_FORMAT_PATTERN = "yyyy-MM-dd";
 
     private String processId;
 
@@ -44,8 +53,94 @@ class ClientEvaluateRequestDto {
 
     private String provider;
 
+    private Status status;
+
+    private DocumentCheckResult documentCheckResult;
+
     /**
      * Data extracted from each document/page. Format is defined by the document verification provider used.
+     *
+     * @deprecated use {@link #documentCheckResult} instead.
      */
+    @Deprecated(forRemoval = true, since = "2.1.0")
     private List<String> extractedData;
+
+    public enum Status {
+        SUCCESS,
+        FAILURE
+    }
+
+    @Builder
+    public record DocumentCheckResult(
+            List<Document> documents,
+            Person person
+    ) {}
+
+    @Builder
+    public record Document(
+            DocumentType type,
+            String country,
+            Status status,
+            Integer score,
+            DocumentData data,
+            List<Image> images,
+            String rawData
+    ) {}
+
+    @Builder
+    public record Person(
+            String surname,
+            String givenNames,
+            @JsonFormat(pattern = DATE_FORMAT_PATTERN)
+            LocalDate dateOfBirth
+    ) {}
+
+    @Builder
+    public record DocumentData(
+            String givenNames,
+            String surname,
+            @JsonFormat(pattern = DATE_FORMAT_PATTERN)
+            LocalDate dateOfBirth,
+            String placeOfBirth,
+            String sex,
+            String nationality,
+            String personalNumber,
+            String documentNumber,
+            @JsonFormat(pattern = DATE_FORMAT_PATTERN)
+            LocalDate dateOfIssue,
+            @JsonFormat(pattern = DATE_FORMAT_PATTERN)
+            LocalDate dateOfExpiry,
+            String authority
+    ) {}
+
+    @Builder
+    public record Image(
+            ImageType type,
+            byte[] data
+    ) {
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof Image other)) return false;
+            return type == other.type && Arrays.equals(data, other.data);
+        }
+
+        @Override
+        public int hashCode() {
+            int result = type != null ? type.hashCode() : 0;
+            result = 31 * result + Arrays.hashCode(data);
+            return result;
+        }
+    }
+
+    public enum ImageType {
+        FACE
+    }
+
+    public enum DocumentType {
+        ID_CARD,
+        DRIVING_LICENCE,
+        PASSPORT
+    }
 }
