@@ -97,7 +97,9 @@ public class MockOnboardingProvider implements OnboardingProvider {
 
         logger.info("Evaluating client for process ID: {}, user ID: {}, verification ID: {}, identityVerification ID: {}",
                 processId, userId, verificationId, identityVerificationId);
-        return EvaluateClientResponse.builder().accepted(true).build();
+        return EvaluateClientResponse.builder()
+                .evaluationResult(EvaluateClientResponse.EvaluationResult.OK)
+                .build();
     }
 
     @Override
