@@ -54,7 +54,9 @@ The Onboarding Server uses the following public configuration properties:
 | `enrollment-server-onboarding.onboarding-adapter.url`                            | `http://localhost:8090` | Digital onboarding adapter service base URL.                 |
 | `enrollment-server-onboarding.onboarding-adapter.connection-timeout`             | `2s`                    | TCP connection timeout.                                      |
 | `enrollment-server-onboarding.onboarding-adapter.handshake-timeout`              | `5s`                    | Handshake timeout.                                           |
-| `enrollment-server-onboarding.onboarding-adapter.response-timeout`               | `5s`                    | HTTP response timeout.                                       |
+| `enrollment-server-onboarding.onboarding-adapter.response-timeout`               | `60s`                   | HTTP response timeout.                                       |
+| `enrollment-server-onboarding.onboarding-adapter.max-idle-time`                  | `200s`                  | Max idle time in connection pool.                            |
+| `enrollment-server-onboarding.onboarding-adapter.max-life-time`                  | `1h`                    | Max life time in connection pool.                            |
 | `enrollment-server-onboarding.onboarding-adapter.accept-invalid-ssl-certificate` | `false`                 | Whether invalid SSL certificates are accepted by the client. |
 | `enrollment-server-onboarding.onboarding-adapter.http-basic-auth-enabled`        | `false`                 | Whether HTTP Basic authentication is enabled.                |
 | `enrollment-server-onboarding.onboarding-adapter.http-basic-auth-username`       |                         | HTTP Basic authentication username.                          |
@@ -154,20 +156,23 @@ for details how the score affects false acceptances (FAR) and false rejections (
 
 ## Microblink Configuration
 
-| Property                                                                                               | Default | Note                                                                    |
-|--------------------------------------------------------------------------------------------------------|---------|-------------------------------------------------------------------------|
-| `enrollment-server-onboarding.document-verification.microblink.restClientConfig.baseUrl`               |         | Base REST service URL for Microblink.                                   |
-| `enrollment-server-onboarding.document-verification.microblink.restClientConfig.httpBasicAuthEnabled`  | `true`  | Whether HTTP Basic authentication is enabled.                           |
-| `enrollment-server-onboarding.document-verification.microblink.restClientConfig.httpBasicAuthUsername` |         | HTTP Basic authentication username.                                     |
-| `enrollment-server-onboarding.document-verification.microblink.restClientConfig.httpBasicAuthPassword` |         | HTTP Basic authentication password.                                     |
-| `enrollment-server-onboarding.document-verification.microblink.restClientConfig.connectionTimeout`     | 5s      | REST connection timeout.                                                |
-| `enrollment-server-onboarding.document-verification.microblink.restClientConfig.responseTimeout`       | 60s     | REST response timeout.                                                  |
-| `enrollment-server-onboarding.document-verification.microblink.restClientConfig.maxIdleTime`           | 200s    | Max idle time in connection pool.                                       |
-| `enrollment-server-onboarding.document-verification.microblink.restClientConfig.maxLifeTime`           | 1h      | Max life time in connection pool.                                       |
-| `enrollment-server-onboarding.document-verification.microblink.mobile-sdk-configs[i].origin`           |         | Microblink Bundle ID / App ID.                                          |
-| `enrollment-server-onboarding.document-verification.microblink.mobile-sdk-configs[i].platform`         |         | Mobile platform. Supported values `ios` and `android` (case sensitive). |
-| `enrollment-server-onboarding.document-verification.microblink.mobile-sdk-configs[i].license-key`      |         | Mobile SDK license key.                                                 |
-| `enrollment-server-onboarding.document-verification.microblink.extractedDataCheckEnabled`              | `true`  | Whether check/validation of extracted data is enabled.                  |
+| Property                                                                                                 | Default | Note                                                                                            |
+|----------------------------------------------------------------------------------------------------------|---------|-------------------------------------------------------------------------------------------------|
+| `enrollment-server-onboarding.document-verification.microblink.restClientConfig.baseUrl`                 |         | Base REST service URL for Microblink.                                                           |
+| `enrollment-server-onboarding.document-verification.microblink.restClientConfig.httpBasicAuthEnabled`    | `true`  | Whether HTTP Basic authentication is enabled.                                                   |
+| `enrollment-server-onboarding.document-verification.microblink.restClientConfig.httpBasicAuthUsername`   |         | HTTP Basic authentication username.                                                             |
+| `enrollment-server-onboarding.document-verification.microblink.restClientConfig.httpBasicAuthPassword`   |         | HTTP Basic authentication password.                                                             |
+| `enrollment-server-onboarding.document-verification.microblink.restClientConfig.connectionTimeout`       | 5s      | REST connection timeout.                                                                        |
+| `enrollment-server-onboarding.document-verification.microblink.restClientConfig.responseTimeout`         | 60s     | REST response timeout.                                                                          |
+| `enrollment-server-onboarding.document-verification.microblink.restClientConfig.maxIdleTime`             | 200s    | Max idle time in connection pool.                                                               |
+| `enrollment-server-onboarding.document-verification.microblink.restClientConfig.maxLifeTime`             | 1h      | Max life time in connection pool.                                                               |
+| `enrollment-server-onboarding.document-verification.microblink.mobile-sdk-configs[i].origin`             |         | Microblink Bundle ID / App ID.                                                                  |
+| `enrollment-server-onboarding.document-verification.microblink.mobile-sdk-configs[i].platform`           |         | Mobile platform. Supported values `ios` and `android` (case sensitive).                         |
+| `enrollment-server-onboarding.document-verification.microblink.mobile-sdk-configs[i].license-key`        |         | Mobile SDK license key.                                                                         |
+| `enrollment-server-onboarding.document-verification.microblink.extractedDataCheckEnabled`                | `true`  | Whether check/validation of extracted data is enabled.                                          |
+| `enrollment-server-onboarding.document-verification.microblink.request-options.returnFaceImage`          | `true`  | Whether the face image extracted from the document should be returned in the response.          |
+| `enrollment-server-onboarding.document-verification.microblink.request-options.returnImageFormat`        | `Jpg`   | Format of images extracted from document in the response. Supported values: `Jpg`, `Png`, `Qoi` |
+| `enrollment-server-onboarding.document-verification.microblink.request-options.returnFullDocumentImage`  | `true`  | Whether the full document images (front and back sides) should be returned in the response.     |
 
 ## Correlation HTTP Header Configuration
 
