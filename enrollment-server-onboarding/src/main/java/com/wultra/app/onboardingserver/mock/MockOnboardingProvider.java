@@ -97,8 +97,10 @@ public class MockOnboardingProvider implements OnboardingProvider {
 
         logger.info("Evaluating client for process ID: {}, user ID: {}, verification ID: {}, identityVerification ID: {}",
                 processId, userId, verificationId, identityVerificationId);
+        final EvaluateClientResponse.EvaluationResult evaluationResult =
+                userId.contains("_async_evaluate") ? EvaluateClientResponse.EvaluationResult.WAIT : EvaluateClientResponse.EvaluationResult.OK;
         return EvaluateClientResponse.builder()
-                .evaluationResult(EvaluateClientResponse.EvaluationResult.OK)
+                .evaluationResult(evaluationResult)
                 .build();
     }
 
