@@ -18,14 +18,15 @@
 
 package com.wultra.app.onboardingserver.common.database;
 
-import com.wultra.app.onboardingserver.common.database.entity.DocumentResultEntity;
 import com.wultra.app.enrollmentserver.model.enumeration.DocumentProcessingPhase;
+import com.wultra.app.onboardingserver.common.database.entity.DocumentResultEntity;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
-import java.util.stream.Stream;
 
 /**
  * Repository for document verification result records.
@@ -36,26 +37,6 @@ import java.util.stream.Stream;
 public interface DocumentResultRepository extends CrudRepository<DocumentResultEntity, Long> {
 
     /**
-     * @return All not finished document uploads (upload is in progress and no extracted data filled)
-     */
-    @Query("SELECT doc FROM DocumentResultEntity doc WHERE" +
-            " doc.documentVerification.status = com.wultra.app.enrollmentserver.model.enumeration.DocumentStatus.UPLOAD_IN_PROGRESS" +
-            " AND doc.documentVerification.providerName = :providerName " +
-            " AND doc.extractedData IS NULL " +
-            " ORDER BY doc.timestampCreated ASC")
-    Stream<DocumentResultEntity> streamAllInProgressDocumentSubmits(String providerName);
-
-    /**
-     * @return All not finished document submit verifications (upload is in progress and verification id exists)
-     */
-    @Query("SELECT doc FROM DocumentResultEntity doc WHERE" +
-            " doc.documentVerification.status = com.wultra.app.enrollmentserver.model.enumeration.DocumentStatus.UPLOAD_IN_PROGRESS" +
-            " AND doc.documentVerification.providerName = :providerName " +
-            " AND doc.documentVerification.verificationId IS NOT NULL" +
-            " ORDER BY doc.timestampCreated ASC")
-    Stream<DocumentResultEntity> streamAllInProgressDocumentSubmitVerifications(String providerName);
-
-    /**
      * @return All document results for the specified document verification and processing phase
      */
     @Query("SELECT doc FROM DocumentResultEntity doc WHERE" +
@@ -63,5 +44,14 @@ public interface DocumentResultRepository extends CrudRepository<DocumentResultE
             " AND doc.phase = :phase" +
             " ORDER BY doc.timestampCreated DESC")
     List<DocumentResultEntity> findLatestResults(String docVerificationId, DocumentProcessingPhase phase);
+
+    @Modifying
+    @Query("""
+            UPDATE DocumentResultEntity d
+            SET d.verificationResult = null,
+                d.extractedData = null
+            WHERE d.documentVerification.id IN :documentVerificationIds
+    """)
+    void clean(final Collection<String> documentVerificationIds);
 
 }
