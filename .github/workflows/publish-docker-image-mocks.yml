@@ -84,7 +84,7 @@ jobs:
         uses: wultra/wultra-infrastructure/.github/actions/resolve-docker-tags@develop
         id: resolve-docker-tags
         with:
-          app_to_build: ${{ matrix.app }}
+          app_to_build: '${{ matrix.app }}-wultra'
           app_version: ${{ steps.build-maven.outputs.app_version }}
 
       - name: Build and push Docker image
