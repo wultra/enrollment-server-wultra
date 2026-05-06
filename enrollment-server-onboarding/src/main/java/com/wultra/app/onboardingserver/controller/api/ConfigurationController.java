@@ -21,6 +21,7 @@ import com.wultra.app.enrollmentserver.api.model.onboarding.request.Configuratio
 import com.wultra.app.enrollmentserver.api.model.onboarding.response.ConfigurationResponse;
 import com.wultra.app.onboardingserver.common.database.entity.OnboardingProcessConfigurationEntity;
 import com.wultra.app.onboardingserver.common.database.entity.OnboardingProcessConfigurationValue;
+import com.wultra.app.onboardingserver.configuration.OnboardingConfig;
 import com.wultra.app.onboardingserver.errorhandling.InvalidRequestObjectException;
 import com.wultra.app.onboardingserver.impl.service.ConfigurationService;
 import com.wultra.core.rest.model.base.request.ObjectRequest;
@@ -33,6 +34,7 @@ import com.wultra.security.powerauth.rest.api.spring.exception.PowerAuthEncrypti
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -56,6 +58,8 @@ public class ConfigurationController {
 
     private final ConfigurationService configurationService;
 
+    private final OnboardingConfig onboardingConfig;
+
     @PostMapping
     @PowerAuthEncryption(scope = EncryptionScope.APPLICATION_SCOPE)
     @Operation(
@@ -63,24 +67,22 @@ public class ConfigurationController {
             description = "Fetch onboarding process configuration for the given type."
     )
     public ObjectResponse<ConfigurationResponse> fetchConfiguration(
-            @EncryptedRequestBody @Valid final ObjectRequest<ConfigurationRequest> request,
+            @NotNull @EncryptedRequestBody @Valid final ObjectRequest<ConfigurationRequest> request,
             @Parameter(hidden = true) final EncryptionContext encryptionContext) throws PowerAuthEncryptionException, InvalidRequestObjectException {
 
-        logger.info("action: fetchConfiguration, state: initiated");
+        final String processType = request.getRequestObject().processType();
+        logger.info("action: fetchConfiguration, state: initiated, processType: {}", processType);
 
         if (encryptionContext == null) {
             throw new PowerAuthEncryptionException("ECIES decryption failed");
         }
 
-        if (request == null || request.getRequestObject() == null) {
-            throw new PowerAuthEncryptionException("Invalid request received");
-        }
-
-        final String processType = request.getRequestObject().processType();
         final ConfigurationResponse result = configurationService.fetchConfiguration(processType)
                 .map(OnboardingProcessConfigurationEntity::getConfiguration)
                 .map(ConfigurationController::convert)
-                .orElseThrow(() -> new InvalidRequestObjectException("Configuration not found for processType: " + processType));
+                .orElseThrow(() -> new InvalidRequestObjectException("Configuration not found for processType: " + processType))
+                .otpResendPeriodSeconds(onboardingConfig.getOtpResendPeriod().getSeconds())
+                .build();
 
         logger.info("action: fetchConfiguration, state: succeeded");
         logger.debug("action: fetchConfiguration, state: succeeded, result: {}", result);
@@ -88,14 +90,13 @@ public class ConfigurationController {
         return new ObjectResponse<>(result);
     }
 
-    private static ConfigurationResponse convert(final OnboardingProcessConfigurationValue source) {
+    private static ConfigurationResponse.ConfigurationResponseBuilder convert(final OnboardingProcessConfigurationValue source) {
         return ConfigurationResponse.builder()
                 .enabled(source.enabled())
                 .otpForIdentification(source.otpForIdentification())
                 .otpForIdentityVerification(source.otpForIdentityVerification())
                 .useTemporaryActivation(source.useTemporaryActivation())
-                .documents(convert(source.documents()))
-                .build();
+                .documents(convert(source.documents()));
     }
 
     private static ConfigurationResponse.Documents convert(final OnboardingProcessConfigurationValue.Documents source) {

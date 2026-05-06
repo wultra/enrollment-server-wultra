@@ -136,28 +136,40 @@ class CleaningService {
      * Clean selfie images.
      *
      * @return Number of deleted selfie images.
-     * @implSpec Right now, the selfie images are deleted based on the process expiration time.
-     * In the future, it could be improved, for example, by cleaning immediately after the process is finished (but the expired ones have to be still handled here).
      */
     @Transactional
     public int cleanSelfies() {
-        return selfieRepository.cleanup(getProcessExpirationTime());
+        return selfieRepository.cleanup(getPersonalDataRetentionTime());
     }
 
     /**
      * Clean document data.
+     *
+     * @return Number of deleted document data.
      */
     @Transactional
     public int cleanupDocumentData() {
-        return documentDataRepository.cleanupDocumentData(getProcessExpirationTime());
+        return documentDataRepository.cleanupDocumentData(getPersonalDataRetentionTime());
     }
 
     /**
      * Clean processed document data.
+     *
+     * @return Number of deleted processed document data.
      */
     @Transactional
     public int cleanupProcessedDocumentData() {
-        return processedDocumentDataRepository.cleanup(getProcessExpirationTime());
+        return processedDocumentDataRepository.cleanup(getPersonalDataRetentionTime());
+    }
+
+    /**
+     * Clean personal data from document results.
+     *
+     * @return Number of document result records with cleaned personal data.
+     */
+    @Transactional
+    public int cleanupDocumentResultPersonalData() {
+        return documentResultRepository.cleanPersonalData(getPersonalDataRetentionTime());
     }
 
     /**
@@ -197,8 +209,11 @@ class CleaningService {
         }
     }
 
-    private Date getProcessExpirationTime() {
-        return DateUtil.convertExpirationToCreatedDate(onboardingConfig.getProcessExpirationTime());
+    private Date getPersonalDataRetentionTime() {
+        final var processExpirationTime = onboardingConfig.getProcessExpirationTime();
+        final var dataRetentionTime = identityVerificationConfig.getDataRetentionTime()
+                .orElseThrow(() -> new IllegalStateException("Property 'dataRetentionTime' is not set"));
+        return DateUtil.convertExpirationToCreatedDate(processExpirationTime.plus(dataRetentionTime));
     }
 
     private Date getVerificationExpirationTime() {
@@ -251,7 +266,6 @@ class CleaningService {
 
     private void terminateAndAuditDocuments(final List<String> documentVerificationIds, final Date now, final String errorDetail, final ErrorOrigin errorOrigin) {
         documentVerificationRepository.terminate(documentVerificationIds, now, errorDetail, errorOrigin);
-        documentResultRepository.clean(documentVerificationIds);
 
         final var documentVerifications = documentVerificationRepository.findAllById(documentVerificationIds);
         for (final var documentVerification : documentVerifications) {

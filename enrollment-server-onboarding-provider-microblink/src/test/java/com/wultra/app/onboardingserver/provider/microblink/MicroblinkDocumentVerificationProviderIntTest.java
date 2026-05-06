@@ -47,6 +47,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.TimeUnit;
 import java.util.*;
 import java.util.function.Function;
 import java.util.regex.Pattern;
@@ -349,6 +350,34 @@ class MicroblinkDocumentVerificationProviderIntTest {
     }
 
     @Test
+    void testSubmitDocuments_requestContainsConfiguredOptionsAndUseCase() throws Exception {
+        // given
+        final var submittedDocuments = buildSubmittedDocuments(List.of(idCardFrontDocument, idCardBackDocument));
+
+        mockWebServer.enqueue(new okhttp3.mockwebserver.MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "application/json")
+                .setBody(microblinkIdCardPassResponseBody));
+
+        // when
+        microblinkDocumentVerificationProvider.submitDocuments(ownerId, submittedDocuments);
+
+        // then
+        final var actualRequest = mockWebServer.takeRequest(3, TimeUnit.SECONDS);
+        assertNotNull(actualRequest);
+
+        final var requestBodyJson = new ObjectMapper().readTree(actualRequest.getBody().readUtf8());
+
+        final var requestOptions = requestBodyJson.path("options");
+        assertTrue(requestOptions.path("returnFaceImage").asBoolean());
+        assertEquals("Jpg", requestOptions.path("returnImageFormat").asText());
+        assertTrue(requestOptions.path("returnFullDocumentImage").asBoolean());
+
+        final var requestUseCase = requestBodyJson.path("useCase");
+        assertEquals("Strict", requestUseCase.path("documentVerificationPolicy").asText());
+    }
+
+    @Test
     void testSubmitDocuments_microblinkClientException_exceptionIsThrown() {
         // given
         final var submittedDocuments = buildSubmittedDocuments(List.of(idCardFrontDocument, idCardBackDocument));
@@ -430,7 +459,7 @@ class MicroblinkDocumentVerificationProviderIntTest {
     }
 
     @Test
-    void testVerifyDocuments_successfulVerification_correctResponseIsReturned() throws Exception {
+    void testVerifyDocuments_successfulVerification_correctResponseIsReturned() {
         // given
         prepareIdCardFrontVerificationDataInDatabase();
         prepareIdCardBackVerificationDataInDatabase();
@@ -460,10 +489,11 @@ class MicroblinkDocumentVerificationProviderIntTest {
         final var uploadIds = List.of(ID_CARD_FRONT_UPLOAD_ID, ID_CARD_BACK_UPLOAD_ID, PASSPORT_UPLOAD_ID);
 
         // when
-        final var exception = assertThrows(DocumentVerificationException.class, () -> microblinkDocumentVerificationProvider.verifyDocuments(ownerId, uploadIds));
+        final var result = microblinkDocumentVerificationProvider.verifyDocuments(ownerId, uploadIds);
 
         // then
-        assertEquals("Crosscheck failed for field firstName", exception.getMessage());
+        assertEquals(DocumentVerificationStatus.REJECTED, result.getStatus());
+        assertEquals("[Document data crosscheck failed for fields: [firstName]]", result.getRejectReason());
     }
 
     private List<SubmittedDocument> buildSubmittedDocuments(final List<MicroblinkDocumentVerificationProvider.DocumentVerificationData> documents) {
@@ -698,7 +728,6 @@ class MicroblinkDocumentVerificationProviderIntTest {
         final var identityVerification = identityVerificationRepository.findById(IDENTITY_VERIFICATION_ID).orElseThrow();
 
         final var documentVerification = new DocumentVerificationEntity();
-        //documentVerification.setId(ID_CARD_FRONT_DOCUMENT_VERIFICATION_ID);
         documentVerification.setActivationId(ACTIVATION_ID);
         documentVerification.setIdentityVerification(identityVerification);
         documentVerification.setType(DocumentType.ID_CARD);
