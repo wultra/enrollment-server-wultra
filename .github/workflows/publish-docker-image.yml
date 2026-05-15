@@ -82,6 +82,7 @@ jobs:
           module_to_build: ${{ matrix.app }}
           project_path: ''
           generate_sbom: 'true'
+          output_name: '${{ matrix.app }}-wultra'
 
       - name: Resolve Docker tags
         uses: wultra/wultra-infrastructure/.github/actions/resolve-docker-tags@develop
