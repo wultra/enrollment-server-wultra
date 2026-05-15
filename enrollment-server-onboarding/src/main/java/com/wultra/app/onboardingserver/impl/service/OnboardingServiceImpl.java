@@ -17,12 +17,6 @@
  */
 package com.wultra.app.onboardingserver.impl.service;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.MapperFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.wultra.app.enrollmentserver.api.model.onboarding.request.*;
 import com.wultra.app.enrollmentserver.api.model.onboarding.response.OnboardingConsentTextResponse;
 import com.wultra.app.enrollmentserver.api.model.onboarding.response.OnboardingStartResponse;
@@ -55,6 +49,7 @@ import com.wultra.app.onboardingserver.provider.model.request.ApproveConsentRequ
 import com.wultra.app.onboardingserver.provider.model.request.ConsentTextRequest;
 import com.wultra.app.onboardingserver.provider.model.request.SendOtpCodeRequest;
 import com.wultra.app.onboardingserver.provider.model.response.ApproveConsentResponse;
+import com.wultra.app.onboardingserver.provider.model.response.LookupUserResponse;
 import com.wultra.core.http.common.request.RequestContext;
 import com.wultra.core.rest.model.base.response.Response;
 import com.wultra.security.powerauth.client.model.response.InitActivationResponse;
@@ -68,6 +63,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.SerializationFeature;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.text.SimpleDateFormat;
 import java.time.Duration;
@@ -99,16 +98,14 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
      */
     private final ConfigurationDataDto integrationConfigDto;
 
-    // Special instance of ObjectMapper for normalized serialization of identification data
+    // Special instance of ObjectMapper for normalized serialization of identification data.
     private final ObjectMapper normalizedMapper = JsonMapper
             .builder()
             .enable(SerializationFeature.FAIL_ON_EMPTY_BEANS)
-            .enable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY)
             .enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
             .enable(SerializationFeature.INDENT_OUTPUT)
-            .build()
-            .setDateFormat(new SimpleDateFormat(IDENTIFICATION_DATA_DATE_FORMAT))
-            .setSerializationInclusion(JsonInclude.Include.ALWAYS);
+            .defaultDateFormat(new SimpleDateFormat(IDENTIFICATION_DATA_DATE_FORMAT))
+            .build();
 
     private final OnboardingProvider onboardingProvider;
 
@@ -494,9 +491,9 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
                         .formatted(process.getId(), userId, errorDetail));
             }
 
-            process.setConsentAccepted(true);
+            process.setConsentAccepted(request.isApproved());
 
-            auditService.auditOnboardingProvider(process, "Approve consent text for user: {}", userId);
+            auditService.auditOnboardingProvider(process, "Consent decision stored for user: {}, isApproved: {}", userId, request.isApproved());
         } catch (OnboardingProviderException e) {
             throw new OnboardingProcessException("An error when approving consent.", e);
         }
@@ -541,10 +538,32 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
 
         final OnboardingProcessEntity process = createNewProcess(request, identificationData, requestContext);
         logger.debug("Created process ID: {}", process.getId());
-        final String userId = lookupUserService.lookupUser(process, request.identification()).orElse(null);
+
+        final Optional<LookupUserResponse> lookupUserResponse = lookupUserService.lookupUser(process, request.identification());
+        final String userId = lookupUserResponse.map(LookupUserResponse::getUserId).orElse(null);
         process.setUserId(userId);
-        auditService.audit(process, "Process started for user: {}", userId);
+        storeConsent(process, lookupUserResponse.map(LookupUserResponse::isConsentNotRequired).orElse(false));
+        auditService.audit(process, "Process started for user: {}", process.getUserId());
         return process;
+    }
+
+    /**
+     * Copy consent result from lookup user response to process if configured to use consent.
+     *
+     * @param process process to store consent for
+     * @param consentAccepted value from lookup user response
+     */
+    private static void storeConsent(final OnboardingProcessEntity process, final boolean consentAccepted) {
+        if (isConsentConfigured(process)) {
+            logger.debug("Consent configured for processId: {}, storing user lookup response value: {}", process.getId(), consentAccepted);
+            process.setConsentAccepted(consentAccepted);
+        } else {
+            logger.debug("Consent not configured for processId: {}, ignoring user lookup response", process.getId());
+        }
+    }
+
+    private static boolean isConsentConfigured(final OnboardingProcessEntity process) {
+        return process.getProcessConfiguration().getConfiguration().consentRequired();
     }
 
     private OnboardingProcessEntity createNewProcess(final OnboardingStartRequest request, final String identificationData, final RequestContext requestContext) throws OnboardingProcessException {
@@ -596,7 +615,9 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
         logger.debug("Resuming process ID: {}", process.getId());
         process.setTimestampLastUpdated(new Date());
         setProcessCustomData(process, fdsData, requestContext);
-        final String userId = lookupUserService.lookupUser(process, identification).orElse(null);
+        final String userId = lookupUserService.lookupUser(process, identification)
+                .map(LookupUserResponse::getUserId)
+                .orElse(null);
         if (!process.getUserId().equals(userId)) {
             throw new OnboardingProcessException(
                     String.format("Looked up user ID '%s' does not equal to user ID '%s' of process ID %s",
@@ -623,7 +644,7 @@ public class OnboardingServiceImpl extends CommonOnboardingService {
     private String parseIdentificationData(final Map<String, Object> identification) throws InvalidRequestObjectException {
         try {
             return normalizedMapper.writeValueAsString(identification);
-        } catch (JsonProcessingException ex) {
+        } catch (JacksonException ex) {
             throw new InvalidRequestObjectException("Invalid identification data: " + identification, ex);
         }
     }

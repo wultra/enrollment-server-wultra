@@ -18,7 +18,8 @@
 package com.wultra.app.enrollmentserver.model.integration;
 
 import com.wultra.app.enrollmentserver.model.enumeration.DocumentVerificationStatus;
-import lombok.Data;
+import lombok.Builder;
+import lombok.Getter;
 
 import java.util.List;
 
@@ -27,7 +28,8 @@ import java.util.List;
  *
  * @author Roman Strobl, roman.strobl@wultra.com
  */
-@Data
+@Getter
+@Builder
 public class DocumentsVerificationResult {
 
     private String verificationId;

@@ -17,14 +17,15 @@
  */
 package com.wultra.app.enrollmentserver.model.integration;
 
-import lombok.Data;
+import lombok.*;
 
 /**
  * Result of verification of a single identity-related document.
  *
  * @author Roman Strobl, roman.strobl@wultra.com
  */
-@Data
+@Getter
+@Builder
 public class DocumentVerificationResult {
 
     private String uploadId;
@@ -37,5 +38,9 @@ public class DocumentVerificationResult {
      * Overall score achieved during document verification and fraud detection (0 - 10).
      */
     private Integer verificationScore;
+
+    public boolean isRejected() {
+        return rejectReason != null;
+    }
 
 }

@@ -22,6 +22,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 
 import java.time.Duration;
+import java.util.Optional;
 
 /**
  * Identity verification configuration.
@@ -50,6 +51,9 @@ public class IdentityVerificationConfig {
     @Value("${enrollment-server-onboarding.presence-check.cleanupEnabled:false}")
     private boolean presenceCheckCleanupEnabled;
 
+    @Value("${enrollment-server-onboarding.identity-verification.data-retention:1h}")
+    private Duration dataRetentionTime;
+
     @Value("${enrollment-server-onboarding.onboarding-process.verification.expiration:1h}")
     private Duration verificationExpirationTime;
 
@@ -68,9 +72,18 @@ public class IdentityVerificationConfig {
     @Value("${enrollment-server-onboarding.presence-check.selfie.minimal-width:400}")
     private int minimalSelfieWidth;
 
-    @Value("${enrollment-server-onboarding.client-evaluation.max-failed-attempts:5}")
+    @Value("${enrollment-server-onboarding.client-evaluation.max-failed-attempts:1}")
     private int clientEvaluationMaxFailedAttempts;
 
     @Value("${enrollment-server-onboarding.client-evaluation.include-extracted-data:false}")
     private boolean sendingExtractedDataEnabled;
+
+    /**
+     * Gets the personal data retention time.
+     *
+     * @return Personal data retention time
+     */
+    public Optional<Duration> getDataRetentionTime() {
+        return Optional.ofNullable(dataRetentionTime);
+    }
 }
