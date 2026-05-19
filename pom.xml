@@ -191,6 +191,12 @@
             </dependency>
 
             <dependency>
+                <groupId>com.wultra.core</groupId>
+                <artifactId>logging-support</artifactId>
+                <version>${wultra-core.version}</version>
+            </dependency>
+
+            <dependency>
                 <groupId>com.wultra.security</groupId>
                 <artifactId>powerauth-java-crypto</artifactId>
                 <version>${powerauth-crypto.version}</version>
@@ -310,6 +316,19 @@
         </pluginManagement>
 
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
