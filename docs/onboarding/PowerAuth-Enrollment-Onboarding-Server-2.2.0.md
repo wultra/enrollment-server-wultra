@@ -2,6 +2,12 @@
 
 This guide contains instructions for migration from PowerAuth Enrollment Onboarding Server version `2.1.x` to version `2.2.0`.
 
+
+## Onboarding process state machine
+
+Added limit for identity verification records processed by a single scheduled task calling next state. The default limit is `10_000` and can be configured by property `enrollment-server-onboarding.identity-verification.next-state-batch-size`.
+
+
 ## Replaced Event
 
 We replaced old event type `FINISHED` with the new event type `PROCESS_FINISHED`. Event is triggered at the end of the onboarding process.
@@ -57,3 +63,37 @@ New format (event `PROCESS_FINISHED`)
 ```
 
 All details are described in [Events Documentation](./Events.md).
+
+
+## Database Changes
+
+For convenience, you can use liquibase for your database migration.
+
+For manual changes use SQL scripts:
+
+- [PostgreSQL script](./../sql/postgresql/onboarding/migration_2.1.0_2.2.0.sql)
+- [Oracle script](./../sql/oracle/onboarding/migration_2.1.0_2.2.0.sql)
+
+
+### External User ID
+
+A new column `external_user_id` was added to the `es_onboarding_process` table.
+The column stores an external user identifier used by the presence check provider (e.g. iProov).
+It is `NULL` at the start of the process and set during the presence check phase.
+
+
+## Configuration
+
+
+### Removed Property `enrollment-server-onboarding.identity-verification.enabled`
+
+The property `enrollment-server-onboarding.identity-verification.enabled` has been removed.
+Identity verification is now always enabled; the previous behavior is equivalent to always setting the property to `true`.
+Remove this property from your configuration.
+
+
+### Events
+
+A new property `enrollment-server-onboarding.onboarding-process.process-event.types` has been added to the configuration.
+It contains a list of event types that are supported to be published.
+The default value is `PROCESS_FINISHED`, `DOCUMENT_VERIFICATION_FINISHED`, `FINAL_DOCUMENT_VERIFICATION_FINISHED`, and `PRESENCE_CHECK_FINISHED`.

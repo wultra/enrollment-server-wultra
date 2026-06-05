@@ -45,14 +45,13 @@ import com.wultra.app.onboardingserver.statemachine.guard.document.RequiredDocum
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.util.Streamable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static com.wultra.app.enrollmentserver.model.enumeration.IdentityVerificationStatus.FAILED;
 
@@ -233,46 +232,6 @@ public class IdentityVerificationService {
 
         logger.info("action: startDocumentVerification, state: succeeded, result: {}", documentEvaluationResult);
         return documentEvaluationResult;
-    }
-
-    /**
-     * Checks verification result and evaluates the final state of the identity verification process
-     *
-     * @param ownerId Owner identification.
-     * @param idVerification Verification identity
-     * @throws DocumentVerificationException Thrown when an error during verification check occurred.
-     * @throws OnboardingProcessException Thrown when onboarding process is invalid.
-     * @throws RemoteCommunicationException In case of remote communication error.
-     */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void checkVerificationResult(final OwnerId ownerId, final IdentityVerificationEntity idVerification)
-            throws DocumentVerificationException, OnboardingProcessException, RemoteCommunicationException {
-        List<DocumentVerificationEntity> allDocVerifications =
-                documentVerificationRepository.findAllDocumentVerifications(idVerification,
-                        Collections.singletonList(DocumentStatus.VERIFICATION_IN_PROGRESS));
-        Map<String, List<DocumentVerificationEntity>> verificationsById = new HashMap<>();
-
-        for (DocumentVerificationEntity docVerification : allDocVerifications) {
-            verificationsById.computeIfAbsent(docVerification.getVerificationId(), verificationId -> new ArrayList<>())
-                    .add(docVerification);
-        }
-
-        for (Map.Entry<String, List<DocumentVerificationEntity>> entry : verificationsById.entrySet()) {
-            DocumentsVerificationResult docVerificationResult = documentVerificationProvider.getVerificationResult(ownerId, entry.getKey());
-            auditService.auditDocumentVerificationProvider(idVerification, "Got verification result: {} for user: {}", docVerificationResult.getStatus(), ownerId.getUserId());
-
-            processService.findProcessWithLock(idVerification.getProcessId());
-
-            verificationProcessingService.processVerificationResult(ownerId, entry.getValue(), docVerificationResult);
-        }
-
-        if (allDocVerifications.stream()
-                .anyMatch(docVerification -> docVerification.getStatus() == DocumentStatus.VERIFICATION_IN_PROGRESS)) {
-            logger.debug("Some documents still VERIFICATION_IN_PROGRESS for identity verification ID: {}", idVerification.getId());
-            return;
-        }
-
-        evaluateDocuments(idVerification, allDocVerifications, ownerId);
     }
 
     /**
@@ -512,12 +471,15 @@ public class IdentityVerificationService {
     }
 
     /**
-     * Return all identity verifications eligible for change to next state.
+     * Return all identity verifications eligible for change to the next state.
      *
      * @return identity verifications
      */
-    public Stream<IdentityVerificationEntity> streamAllIdentityVerificationsToChangeState() {
-        return identityVerificationRepository.streamAllIdentityVerificationsToChangeState(identityVerificationConfig.getDocumentVerificationProvider());
+    public List<IdentityVerificationEntity> findAllIdentityVerificationsToChangeState() {
+        final var provider = identityVerificationConfig.getDocumentVerificationProvider();
+        final var batchSize = identityVerificationConfig.getNextStateBatchSize();
+
+        return identityVerificationRepository.findAllIdentityVerificationsToChangeState(provider, Pageable.ofSize(batchSize));
     }
 
     /**
