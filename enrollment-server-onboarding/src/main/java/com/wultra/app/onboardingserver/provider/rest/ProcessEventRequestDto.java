@@ -19,8 +19,6 @@ package com.wultra.app.onboardingserver.provider.rest;
 
 import lombok.Data;
 
-import java.util.Map;
-
 /**
  * Request object for processing event.
  *
@@ -37,11 +35,9 @@ class ProcessEventRequestDto {
 
     private String userId;
 
-    private EventType type;
+    private String externalUserId;
 
-    private Map<String, Object> data;
+    private EventTypeDto type;
 
-    public enum EventType {
-        FINISHED
-    }
+    private EventDataDto eventData;
 }

@@ -22,11 +22,6 @@ import com.wultra.app.onboardingserver.provider.OnboardingProvider;
 import com.wultra.core.annotations.PublicApi;
 import lombok.*;
 
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.Locale;
-import java.util.Map;
-
 /**
  * Request object for {@link OnboardingProvider#processEvent(ProcessEventRequest)}.
  *
@@ -48,6 +43,13 @@ public final class ProcessEventRequest {
     @NonNull
     private String userId;
 
+    /**
+     * User ID in the external system, which is used by the provider.
+     * It can be the same as {@code userId} or different, depending on the provider implementation.
+     * It is {@code null} at the early phases of the process.
+     */
+    private String externalUserId;
+
     @NonNull
     private String identityVerificationId;
 
@@ -56,63 +58,4 @@ public final class ProcessEventRequest {
 
     @NonNull
     private EventData eventData;
-
-    public interface EventData {
-        /**
-         * Return data represented as a map.
-         *
-         * @return map
-         */
-        Map<String, Object> asMap();
-    }
-
-    /**
-     * Specialization fo {@link EventData} for {@link EventType#FINISHED}.
-     */
-    public interface FinishedEventData extends EventData {
-    }
-
-    /**
-     * Default implementation of {@link FinishedEventData}.
-     */
-    @Builder
-    @Getter
-    @ToString
-    @PublicApi
-    @EqualsAndHashCode
-    public static class DefaultFinishedEventData implements FinishedEventData {
-
-        @NonNull
-        private Locale locale;
-
-        @NonNull
-        private String httpUserAgent;
-
-        @NonNull
-        private String clientIPAddress;
-
-        /**
-         * Unique ID of the request
-         */
-        private String requestId;
-
-        private Map<String, Object> fdsData;
-
-        @Override
-        public Map<String, Object> asMap() {
-            final Map<String, Object> map = new LinkedHashMap<>();
-            map.put("language", locale.getLanguage());
-            map.put("httpUserAgent", httpUserAgent);
-            map.put("clientIPAddress", clientIPAddress);
-            map.put("requestId", requestId);
-            if (fdsData != null) {
-                map.putAll(fdsData);
-            }
-            return Collections.unmodifiableMap(map);
-        }
-    }
-
-    public enum EventType {
-        FINISHED
-    }
 }

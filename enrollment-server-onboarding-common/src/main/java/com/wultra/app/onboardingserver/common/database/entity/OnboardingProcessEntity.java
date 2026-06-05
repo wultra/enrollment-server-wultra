@@ -26,8 +26,6 @@ import jakarta.validation.constraints.NotNull;
 import lombok.*;
 import org.hibernate.annotations.UuidGenerator;
 
-import java.io.Serial;
-import java.io.Serializable;
 import java.util.Date;
 import java.util.LinkedHashSet;
 import java.util.Objects;
@@ -44,10 +42,7 @@ import java.util.Set;
 @NoArgsConstructor
 @Entity
 @Table(name = "es_onboarding_process")
-public class OnboardingProcessEntity implements Serializable {
-
-    @Serial
-    private static final long serialVersionUID = -438495244269415158L;
+public class OnboardingProcessEntity {
 
     public static final String ERROR_PROCESS_CANCELED = "canceledProcess";
     public static final String ERROR_PROCESS_EXPIRED_ACTIVATION = "expiredProcessActivation";
@@ -81,6 +76,13 @@ public class OnboardingProcessEntity implements Serializable {
 
     @Column(name = "user_id")
     private String userId;
+
+    /**
+     * External user identifier used by the presence check provider (e.g. iProov).
+     * Is {@code null} at the start of the process and set during the presence check phase.
+     */
+    @Column(name = "external_user_id")
+    private String externalUserId;
 
     @Column(name = "activation_id")
     private String activationId;
