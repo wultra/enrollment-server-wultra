@@ -232,6 +232,8 @@ public class RestOnboardingProvider implements OnboardingProvider {
 
     private static ProcessEventRequestDto convert(final ProcessEventRequest source) {
         final ProcessEventRequestDto target = new ProcessEventRequestDto();
+        target.setId(source.getId());
+        target.setTimestamp(source.getTimestamp());
         target.setProcessId(source.getProcessId());
         target.setProcessType(source.getProcessType());
         target.setIdentityVerificationId(source.getIdentityVerificationId());
@@ -266,7 +268,7 @@ public class RestOnboardingProvider implements OnboardingProvider {
 
     private static ProcessFinishedEventDataDto convert(final ProcessFinishedEventData source) {
         return ProcessFinishedEventDataDto.builder()
-                .process(ProcessFinishedEventDataDto.Process.builder()
+                .process(ProcessFinishedEventDataDto.ProcessInfo.builder()
                         .status(source.status().name())
                         .errorDetail(source.errorDetail())
                         .deviceData(convert(source.deviceData()))
@@ -337,10 +339,10 @@ public class RestOnboardingProvider implements OnboardingProvider {
                 .build();
     }
 
-    private static DocumentVerificationFinishedEventDataDto.Image convert(
-            final DocumentVerificationFinishedEventData.Image source) {
+    private static DocumentVerificationFinishedEventDataDto.DocumentImage convert(
+            final DocumentVerificationFinishedEventData.DocumentImage source) {
 
-        return DocumentVerificationFinishedEventDataDto.Image.builder()
+        return DocumentVerificationFinishedEventDataDto.DocumentImage.builder()
                 .type(source.type())
                 .data(source.data())
                 .build();
