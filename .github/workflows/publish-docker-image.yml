@@ -17,6 +17,10 @@ on:
         type: string
         default: '["enrollment-server", "enrollment-server-onboarding"]'
         required: true
+      push_latest:
+        type: boolean
+        default: false
+        description: Also push 'latest' tag to the distribution registry?
   pull_request:
     branches:
       - 'develop'
@@ -66,7 +70,7 @@ jobs:
       matrix:
         app: ${{ fromJSON(github.event.inputs.products_to_build || '["enrollment-server", "enrollment-server-onboarding"]') }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup Java
         uses: wultra/wultra-infrastructure/.github/actions/setup-java@develop
@@ -90,6 +94,7 @@ jobs:
         with:
           app_to_build: '${{ matrix.app }}-wultra'
           app_version: ${{ steps.build-maven.outputs.app_version }}
+          push_latest: ${{ inputs.push_latest }}
 
       - name: Build and push Docker image
         uses: wultra/wultra-infrastructure/.github/actions/build-and-push-docker@develop

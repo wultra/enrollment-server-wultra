@@ -39,10 +39,8 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 import java.time.LocalDate;
-import java.util.Base64;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.time.LocalDateTime;
+import java.util.*;
 
 import static com.wultra.app.onboardingserver.common.logging.StructuredLogging.*;
 
@@ -192,6 +190,8 @@ public class OnboardingEventService {
         return ProcessEventRequest.builder()
                 .processId(process.getId())
                 .processType(process.getProcessConfiguration().getProcessType())
+                .id(UUID.randomUUID().toString())
+                .timestamp(LocalDateTime.now())
                 .userId(identityVerification.getUserId())
                 .externalUserId(process.getExternalUserId())
                 .identityVerificationId(identityVerification.getId());
@@ -218,13 +218,13 @@ public class OnboardingEventService {
 
     private void sendEvent(final ProcessEventRequest request) {
         try {
-            logger.info("", action("sendEvent"), stateInitiated(), kv("eventType", request.getType()), kv("processId", request.getProcessId()));
+            logger.info("Send event initiated", action("sendEvent"), stateInitiated(), kv("eventType", request.getType()), kv("processId", request.getProcessId()));
             final ProcessEventResponse response = onboardingProvider.processEvent(request);
             logger.debug("Got {} for processId={}", response, request.getProcessId());
-            logger.info("", action("sendEvent"), stateSucceeded(), kv("errorOccurred", response.isErrorOccurred()), kv("errorDetail", response.getErrorDetail()));
+            logger.info("Send event succeeded", action("sendEvent"), stateSucceeded(), kv("errorOccurred", response.isErrorOccurred()), kv("errorDetail", response.getErrorDetail()));
         } catch (OnboardingProviderException e) {
             // unsuccessful event publishing does not stop the process
-            logger.warn("", action("sendEvent"), stateFailed(), kv("exceptionMessage", e.getMessage()), e);
+            logger.warn("Send event failed", action("sendEvent"), stateFailed(), kv("exceptionMessage", e.getMessage()), e);
         }
     }
 
@@ -315,14 +315,14 @@ public class OnboardingEventService {
                 .build();
     }
 
-    private List<DocumentVerificationFinishedEventData.Image> buildImages(final DocumentVerificationEntity doc) {
+    private List<DocumentVerificationFinishedEventData.DocumentImage> buildImages(final DocumentVerificationEntity doc) {
         final List<ProcessedDocumentDataEntity> entities =
                 processedDocumentDataRepository.findAllByDocumentVerificationIds(Set.of(doc.getId()));
         if (entities.isEmpty()) {
             return List.of();
         }
         return entities.stream()
-                .map(it -> DocumentVerificationFinishedEventData.Image.builder()
+                .map(it -> DocumentVerificationFinishedEventData.DocumentImage.builder()
                         .type(it.getDataType().name())
                         .data(Base64.getEncoder().encodeToString(it.getData()))
                         .build())
