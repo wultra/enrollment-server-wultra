@@ -48,7 +48,6 @@
             <scope>test</scope>
         </dependency>
 
-
         <dependency>
             <groupId>org.apache.tomcat.embed</groupId>
             <artifactId>tomcat-embed-el</artifactId>
@@ -58,13 +57,6 @@
         <dependency>
             <groupId>com.wultra.core</groupId>
             <artifactId>logging-support</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-
-        <dependency>
-            <groupId>org.apache.tomcat.embed</groupId>
-            <artifactId>tomcat-embed-el</artifactId>
             <scope>test</scope>
         </dependency>
 
