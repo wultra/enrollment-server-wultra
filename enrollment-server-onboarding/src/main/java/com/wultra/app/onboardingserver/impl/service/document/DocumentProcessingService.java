@@ -22,7 +22,6 @@ import com.wultra.app.enrollmentserver.model.enumeration.*;
 import com.wultra.app.enrollmentserver.model.integration.*;
 import com.wultra.app.onboardingserver.api.errorhandling.DocumentVerificationException;
 import com.wultra.app.onboardingserver.api.provider.DocumentVerificationProvider;
-import com.wultra.app.onboardingserver.common.database.DocumentResultRepository;
 import com.wultra.app.onboardingserver.common.database.DocumentVerificationRepository;
 import com.wultra.app.onboardingserver.common.database.entity.DocumentResultEntity;
 import com.wultra.app.onboardingserver.common.database.entity.DocumentVerificationEntity;
@@ -33,15 +32,18 @@ import com.wultra.app.onboardingserver.common.service.AuditService;
 import com.wultra.app.onboardingserver.configuration.IdentityVerificationConfig;
 import com.wultra.app.onboardingserver.errorhandling.Base64DeserializationException;
 import com.wultra.app.onboardingserver.errorhandling.DocumentSubmitException;
+import com.wultra.app.onboardingserver.impl.service.OnboardingEventService;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
+import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
 import java.util.*;
+import java.util.function.Predicate;
 
 import static java.util.stream.Collectors.groupingBy;
 
@@ -59,11 +61,11 @@ public class DocumentProcessingService {
 
     private final DocumentVerificationRepository documentVerificationRepository;
 
-    private final DocumentResultRepository documentResultRepository;
-
     private final DocumentVerificationProvider documentVerificationProvider;
 
     private final AuditService auditService;
+
+    private final OnboardingEventService onboardingEventService;
 
     /**
      * Submit identity-related documents for verification.
@@ -86,9 +88,19 @@ public class DocumentProcessingService {
 
         final List<DocumentVerificationEntity> docVerifications = new ArrayList<>();
         for (var documentsOfSameType : documentsByType.values()) {
-            docVerifications.addAll(submitDocument(documentsOfSameType, idVerification, ownerId));
+            final List<DocumentVerificationEntity> docVerificationsOfSameType = submitDocument(documentsOfSameType, idVerification, ownerId);
+            docVerifications.addAll(docVerificationsOfSameType);
+            // Successfully uploaded documents are published after verification by VerificationProcessingService.
+            // Rejected or failed documents never enter verification, so they must be published here.
+            if (docVerificationsOfSameType.stream().anyMatch(isDocumentRejectedOrFailed())) {
+                onboardingEventService.publishDocumentVerificationFinished(docVerificationsOfSameType);
+            }
         }
         return docVerifications;
+    }
+
+    private static @NonNull Predicate<DocumentVerificationEntity> isDocumentRejectedOrFailed() {
+        return document -> document.getStatus() == DocumentStatus.REJECTED || document.getStatus() == DocumentStatus.FAILED;
     }
 
     /**
@@ -141,21 +153,16 @@ public class DocumentProcessingService {
                                       final Map<String, DocumentVerificationEntity> docVerificationsMap,
                                       final OwnerId ownerId) {
 
-        final List<DocumentResultEntity> docResults = new ArrayList<>();
-
         for (final DocumentSubmitResult result : results.getResults()) {
             final DocumentVerificationEntity docVerification = docVerificationsMap.get(result.getDocumentId());
             processDocsSubmitResults(ownerId, docVerification, results, result);
 
             final DocumentResultEntity docResult = createDocumentResult(docVerification, result);
             docResult.setTimestampCreated(ownerId.getTimestamp());
-            docResult.setDocumentVerification(docVerification);
-
-            docResults.add(docResult);
+            // The document verifications are managed entities, the results are persisted by the cascade on flush
+            docVerification.addResult(docResult);
         }
 
-        documentVerificationRepository.saveAll(docVerificationsMap.values());
-        documentResultRepository.saveAll(docResults);
         logger.debug("Processed submit result of documents {}, {}", docVerificationsMap.values(), ownerId);
     }
 
@@ -370,8 +377,15 @@ public class DocumentProcessingService {
         }
     }
 
-    private void processDocsSubmitResults(OwnerId ownerId, DocumentVerificationEntity docVerification,
-                                          DocumentsSubmitResult docsSubmitResults, DocumentSubmitResult docSubmitResult) {
+    private void processDocsSubmitResults(
+            final OwnerId ownerId,
+            final DocumentVerificationEntity docVerification,
+            final DocumentsSubmitResult docsSubmitResults,
+            final DocumentSubmitResult docSubmitResult) {
+
+        docVerification.setUploadId(docSubmitResult.getUploadId());
+        docVerification.setProviderName(identityVerificationConfig.getDocumentVerificationProvider());
+
         if (StringUtils.isNotBlank(docSubmitResult.getErrorDetail())) {
             docVerification.setStatus(DocumentStatus.FAILED);
             docVerification.setErrorDetail(ErrorDetail.DOCUMENT_VERIFICATION_FAILED);
@@ -381,18 +395,16 @@ public class DocumentProcessingService {
             auditService.audit(docVerification, "Document verification failed for user: {}, detail: {}", ownerId.getUserId(), docSubmitResult.getErrorDetail());
         } else if (StringUtils.isNotBlank(docSubmitResult.getRejectReason())) {
             docVerification.setStatus(DocumentStatus.REJECTED);
-            docVerification.setRejectReason(ErrorDetail.DOCUMENT_VERIFICATION_REJECTED);
+            docVerification.setRejectReason(docSubmitResult.getRejectReason());
             docVerification.setRejectOrigin(RejectOrigin.DOCUMENT_VERIFICATION);
             logger.info("Document verification ID: {}, rejected: {}, {}",
                     docVerification.getId(), docSubmitResult.getRejectReason(), ownerId);
             auditService.audit(docVerification, "Document verification rejected for user: {}, reason: {}", ownerId.getUserId(), docSubmitResult.getRejectReason());
         } else {
             docVerification.setPhotoId(docsSubmitResults.getExtractedPhotoId());
-            docVerification.setProviderName(identityVerificationConfig.getDocumentVerificationProvider());
             if (docVerification.getTimestampUploaded() == null) {
                 docVerification.setTimestampUploaded(ownerId.getTimestamp());
             }
-            docVerification.setUploadId(docSubmitResult.getUploadId());
 
             if (docVerification.getType() == DocumentType.SELFIE_PHOTO) {
                 final DocumentStatus status = identityVerificationConfig.isVerifySelfieWithDocumentsEnabled() ? DocumentStatus.VERIFICATION_PENDING : DocumentStatus.ACCEPTED;

@@ -34,8 +34,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Service implementing verification processing features.
@@ -99,8 +101,12 @@ public class VerificationProcessingService {
                 }
             }
             documentVerificationRepository.save(docVerification);
-            onboardingEventService.publishDocumentVerificationFinished(docVerification);
         }
+
+        docVerifications.stream()
+                .collect(Collectors.groupingBy(DocumentVerificationEntity::getType, LinkedHashMap::new, Collectors.toList()))
+                .values()
+                .forEach(onboardingEventService::publishDocumentVerificationFinished);
     }
 
     /**
@@ -120,9 +126,9 @@ public class VerificationProcessingService {
             if (docResults.isEmpty()) {
                 logger.warn("No document result for upload of {}, creating a new one, {}", docVerification, ownerId);
                 docResult = new DocumentResultEntity();
-                docResult.setDocumentVerification(docVerification);
                 docResult.setPhase(DocumentProcessingPhase.UPLOAD);
                 docResult.setTimestampCreated(ownerId.getTimestamp());
+                docVerification.addResult(docResult);
             } else {
                 docResult = docResults.get(0);
                 if (docResults.size() > 1) {
@@ -132,9 +138,9 @@ public class VerificationProcessingService {
             }
         } else if (IdentityVerificationPhase.DOCUMENT_VERIFICATION.equals(phase)) {
             docResult = new DocumentResultEntity();
-            docResult.setDocumentVerification(docVerification);
             docResult.setPhase(DocumentProcessingPhase.VERIFICATION);
             docResult.setTimestampCreated(ownerId.getTimestamp());
+            docVerification.addResult(docResult);
         } else {
             throw new DocumentVerificationException(String.format("Unexpected identity verification phase: %s, %s", phase, ownerId));
         }
@@ -160,10 +166,13 @@ public class VerificationProcessingService {
                 logger.info("Document verification ID: {} failed: {}, {}", docVerification.getId(), docVerificationResult.getErrorDetail(), ownerId);
             }
             case REJECTED -> {
+                final String rejectReason = StringUtils.defaultIfBlank(
+                        docVerificationResult.getRejectReason(),
+                        DocumentVerificationEntity.DEFAULT_REJECT_REASON);
                 docVerification.setStatus(DocumentStatus.REJECTED);
-                docVerification.setRejectReason(ErrorDetail.DOCUMENT_VERIFICATION_REJECTED);
+                docVerification.setRejectReason(rejectReason);
                 docVerification.setRejectOrigin(RejectOrigin.DOCUMENT_VERIFICATION);
-                logger.info("Document verification ID: {} rejected: {}, {}", docVerification.getId(), docVerificationResult.getRejectReason(), ownerId);
+                logger.info("Document verification ID: {} rejected: {}, {}", docVerification.getId(), rejectReason, ownerId);
             }
             default ->
                     throw new IllegalStateException(
@@ -196,7 +205,7 @@ public class VerificationProcessingService {
             docResult.setErrorOrigin(ErrorOrigin.DOCUMENT_VERIFICATION);
         } else if (StringUtils.isNotBlank(docVerificationResult.getRejectReason())) {
             logger.info("Document result ID: {} rejected: {}", docResult.getId(), docVerificationResult.getRejectReason());
-            docResult.setRejectReason(ErrorDetail.DOCUMENT_VERIFICATION_REJECTED);
+            docResult.setRejectReason(docVerificationResult.getRejectReason());
             docResult.setRejectOrigin(RejectOrigin.DOCUMENT_VERIFICATION);
         }
         docResult.setVerificationResult(docVerificationResult.getVerificationResult());
