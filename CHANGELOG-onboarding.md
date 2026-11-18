@@ -8,9 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+### Changed
+
+- Changed Microblink document verification decision to use the `verification.recommendedOutcome` response field; only `Accept` is considered successful [(#1962)](https://github.com/wultra/enrollment-server/issues/1962)
+- Changed default Microblink request `useCase.manualReviewStrategy` to `Never` [(#1962)](https://github.com/wultra/enrollment-server/issues/1962)
+- Changed the response for remote communication failures in onboarding process steps from `ERROR_GENERIC` (HTTP 500) to `REMOTE_COMMUNICATION_ERROR` (HTTP 409), consistent with other endpoints [(#1965)](https://github.com/wultra/enrollment-server/issues/1965)
+
+
 ### Fixed
 
+- Fixed the build time in `/actuator/info` showing `1980-02-01` when built with Maven 3.10 or newer [(#1971)](https://github.com/wultra/enrollment-server/issues/1971)
+- Fixed identity verification status staying `FAILED` after `/api/identity/cleanup` and a new `/api/onboarding/start` of re-KYC with an existing activation; the status is now `NOT_INITIALIZED` so the client can call `/api/identity/init` [#1983](https://github.com/wultra/enrollment-server/issues/1983)
 - Fixed automatic personal-data cleanup not running with the default retention configuration [(#1934)](https://github.com/wultra/enrollment-server/issues/1934)
+- Fixed `NullPointerException` when starting onboarding repeatedly for identification data not matching any user [(#1948)](https://github.com/wultra/enrollment-server/issues/1948)
+- Fixed Microblink reject reason codes and messages in the events documentation to match the API version in use [(#1954)](https://github.com/wultra/enrollment-server/issues/1954)
+- Fixed state machine scheduler logging state changes of identity verifications whose state did not change; polling without a state change is now logged at `DEBUG` level [(#1958)](https://github.com/wultra/enrollment-server/issues/1958)
+- Fixed silently ignored failure of deleting an already existing iProov user, which led to `already_enrolled` errors in the presence check [(#1965)](https://github.com/wultra/enrollment-server/issues/1965)
 
 
 ## [2.2.5] - 2026-10-01
